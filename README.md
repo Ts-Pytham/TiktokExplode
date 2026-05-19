@@ -1,6 +1,8 @@
 # TiktokExplode
 
-[![NuGet](https://img.shields.io/badge/nuget-TiktokExplode-blue)](https://www.nuget.org/packages/TiktokExplode)
+[![NuGet](https://img.shields.io/nuget/v/TiktokExplode.svg?label=TiktokExplode)](https://www.nuget.org/packages/TiktokExplode)
+[![NuGet](https://img.shields.io/nuget/v/TiktokExplode.Infrastructure.svg?label=TiktokExplode.Infrastructure)](https://www.nuget.org/packages/TiktokExplode.Infrastructure)
+[![NuGet](https://img.shields.io/nuget/v/TiktokExplode.All.svg?label=TiktokExplode.All)](https://www.nuget.org/packages/TiktokExplode.All)
 [![.NET](https://img.shields.io/badge/.NET-8.0%20%7C%209.0-512BD4)](https://dotnet.microsoft.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -24,13 +26,25 @@ The library follows **Clean Architecture**: the domain layer (`TiktokExplode`) h
 
 ## Installation
 
+**Recommended — install both packages in one command:**
+
 ```
-dotnet add package TiktokExplode
+dotnet add package TiktokExplode.All
+```
+
+**Or install individually:**
+
+```
 dotnet add package TiktokExplode.Infrastructure
 ```
 
-> `TiktokExplode` contains the domain models and interfaces.  
-> `TiktokExplode.Infrastructure` contains the HTTP client, browser automation, and parsing logic.
+> `TiktokExplode.Infrastructure` automatically brings in `TiktokExplode` (domain) as a transitive dependency.  
+> Install `TiktokExplode` alone only if you need the domain models/interfaces without the infrastructure.
+
+> **Note:** `TiktokExplode.Infrastructure` depends on [Microsoft.Playwright](https://playwright.dev/dotnet/). After installation, run the following once to download the browser binaries:
+> ```
+> pwsh -c "playwright install chromium"
+> ```
 
 ---
 
@@ -207,7 +221,7 @@ TiktokExplode/                # Domain — zero external dependencies
   Domain/
     Entities/                 # Video, Author
     ValueObjects/             # VideoInfo, StreamInfo, VideoStats, VideoDuration, etc.
-    Abstractions/             # IVideoClient, IPageFetcher
+    Abstractions/             # IVideoClient
     Exceptions/               # TiktokException hierarchy
     Utilities/                # URL validation
 
@@ -219,6 +233,8 @@ TiktokExplode.Infrastructure/ # HTTP + browser automation (Playwright + AngleSha
   Parsers/                    # TikTokVideoParser — JSON extraction from hydration script
   Options/                    # TikTokOptions, PlaywrightFetcherOptions, HttpFetcherOptions
   Common/                     # StreamExtensions, TiktokClientExtensions
+
+TiktokExplode.All/            # Meta-package — installs both packages above in one command
 ```
 
 ---

@@ -24,10 +24,10 @@ jobs:
             9.0.x
 
       - name: Restore dependencies
-        run: dotnet restore TiktokExplode.NET.sln
+        run: dotnet restore TiktokExplode.NET.slnx
 
       - name: Build
-        run: dotnet build TiktokExplode.NET.sln --no-restore --configuration Release
+        run: dotnet build TiktokExplode.NET.slnx --no-restore --configuration Release
 
       - name: Run tests
         run: dotnet test TiktokExplode.Tests/TiktokExplode.Tests.csproj --no-build --configuration Release --logger "console;verbosity=normal"
@@ -50,10 +50,10 @@ jobs:
             9.0.x
 
       - name: Restore dependencies
-        run: dotnet restore TiktokExplode.NET.sln
+        run: dotnet restore TiktokExplode.NET.slnx
 
       - name: Pack
-        run: dotnet pack TiktokExplode.NET.sln --no-restore --configuration Release
+        run: dotnet pack TiktokExplode.NET.slnx --no-restore --configuration Release
 
       - name: Push to NuGet
         run: dotnet nuget push "**/*.nupkg" --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate

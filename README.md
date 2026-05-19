@@ -3,6 +3,7 @@
 [![NuGet](https://img.shields.io/nuget/v/TiktokExplode.svg?label=TiktokExplode)](https://www.nuget.org/packages/TiktokExplode)
 [![NuGet](https://img.shields.io/nuget/v/TiktokExplode.Infrastructure.svg?label=TiktokExplode.Infrastructure)](https://www.nuget.org/packages/TiktokExplode.Infrastructure)
 [![NuGet](https://img.shields.io/nuget/v/TiktokExplode.All.svg?label=TiktokExplode.All)](https://www.nuget.org/packages/TiktokExplode.All)
+[![NuGet](https://img.shields.io/nuget/v/TiktokExplode.Extensions.DependencyInjection.svg?label=TiktokExplode.Extensions.DependencyInjection)](https://www.nuget.org/packages/TiktokExplode.Extensions.DependencyInjection)
 [![.NET](https://img.shields.io/badge/.NET-8.0%20%7C%209.0-512BD4)](https://dotnet.microsoft.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -45,6 +46,14 @@ dotnet add package TiktokExplode.Infrastructure
 
 > `TiktokExplode.Infrastructure` automatically brings in `TiktokExplode` (domain) as a transitive dependency.  
 > Install `TiktokExplode` alone only if you need the domain models/interfaces without the infrastructure.
+
+**Using Microsoft.Extensions.DependencyInjection?**
+
+```
+dotnet add package TiktokExplode.Extensions.DependencyInjection
+```
+
+> Adds `AddTiktokExplode()` on `IServiceCollection`. See the [Dependency Injection](#dependency-injection) section.
 
 > **Note:** `TiktokExplode.Infrastructure` depends on [Microsoft.Playwright](https://playwright.dev/dotnet/). After installation, run the following once to download the browser binaries:
 >
@@ -205,6 +214,47 @@ Returned by `DownloadAsync` and `DownloadWatermarkedAsync`. Implements `IAsyncDi
 
 ---
 
+## Dependency Injection
+
+`TiktokExplode.Extensions.DependencyInjection` provides a fluent `AddTiktokExplode()` extension method for registering all TiktokExplode services into the .NET DI container.
+
+```csharp
+// Default — Playwright fetcher, all defaults
+services.AddTiktokExplode();
+
+// Custom — Playwright with visible browser window
+services.AddTiktokExplode(b => b
+    .UsePlaywrightFetcher(o => o.Headless = false));
+
+// HTTP fetcher — lighter, no browser dependency
+services.AddTiktokExplode(b => b
+    .UseHttpFetcher(o => o.WarmupDelay = TimeSpan.Zero)
+    .ConfigureTiktok(o => o.MaxWafRetries = 5));
+```
+
+Registered services:
+
+| Service | Implementation | Lifetime |
+| --- | --- | --- |
+| `IVideoClient` | `TiktokClient` | Singleton |
+| `IPageFetcher` | `PlaywrightFetcher` or `HttpFetcher` | Singleton |
+| `TikTokOptions` | — | Singleton |
+| `PlaywrightFetcherOptions` or `HttpFetcherOptions` | — | Singleton |
+
+```csharp
+// Consume in your services via constructor injection
+public class MyService(IVideoClient client)
+{
+    public async Task<string> GetTitleAsync(string url)
+    {
+        var video = await client.GetVideoAsync(url);
+        return video.Description;
+    }
+}
+```
+
+---
+
 ## Error Handling
 
 ```csharp
@@ -255,6 +305,8 @@ TiktokExplode.Infrastructure/ # HTTP + browser automation (Playwright + AngleSha
   Common/                     # StreamExtensions, TiktokClientExtensions
 
 TiktokExplode.All/            # Meta-package — installs both packages above in one command
+
+TiktokExplode.Extensions.DependencyInjection/  # AddTiktokExplode() for Microsoft.Extensions.DI
 ```
 
 ---

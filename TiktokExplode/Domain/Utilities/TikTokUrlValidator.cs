@@ -1,7 +1,14 @@
 namespace TiktokExplode.Domain.Utilities;
 
+/// <summary>
+/// Validates TikTok video URLs before they are used for network requests.
+/// </summary>
 public static class TikTokUrlValidator
 {
+    /// <summary>
+    /// Set of recognized TikTok hostnames, including short-link variants
+    /// (<c>vm.tiktok.com</c>, <c>vt.tiktok.com</c>).
+    /// </summary>
     private static readonly HashSet<string> _validHosts =
     [
         "tiktok.com",
@@ -13,7 +20,8 @@ public static class TikTokUrlValidator
     /// <summary>
     /// Validates that <paramref name="url"/> is a valid TikTok URL.
     /// </summary>
-    /// <exception cref="ArgumentException">Thrown when the URL is not a valid TikTok URL.</exception>
+    /// <param name="url">The URL string to validate.</param>
+    /// <exception cref="ArgumentException">Thrown when the URL is not a valid absolute HTTPS TikTok URL.</exception>
     public static void Validate(string url)
     {
         if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps)

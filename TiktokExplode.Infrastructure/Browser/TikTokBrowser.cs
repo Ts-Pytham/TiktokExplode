@@ -5,13 +5,29 @@ using TiktokExplode.Infrastructure.Options;
 
 namespace TiktokExplode.Infrastructure.Browser;
 
+/// <summary>
+/// Internal wrapper around a Playwright browser session configured to load TikTok video pages.
+/// Manages a single <see cref="IBrowserContext"/> shared across multiple page navigations.
+/// Resource-heavy assets (images, media, fonts, stylesheets) are intercepted and aborted
+/// to speed up page load times.
+/// </summary>
 internal sealed class TikTokBrowser : IAsyncDisposable
 {
+    /// <summary>The top-level Playwright instance. Must be disposed last.</summary>
     private readonly IPlaywright _playwright;
+
+    /// <summary>The launched Chromium browser process.</summary>
     private readonly IBrowser _browser;
+
+    /// <summary>
+    /// The browser context (equivalent to an incognito profile) shared across all page navigations.
+    /// </summary>
     private readonly IBrowserContext _context;
+
+    /// <summary>Browser launch and navigation options.</summary>
     private readonly PlaywrightFetcherOptions _options;
 
+    /// <summary>Private constructor — use <see cref="CreateAsync"/> to instantiate.</summary>
     private TikTokBrowser(IPlaywright playwright, IBrowser browser, IBrowserContext context, PlaywrightFetcherOptions options)
     {
         _playwright = playwright;
@@ -20,6 +36,12 @@ internal sealed class TikTokBrowser : IAsyncDisposable
         _options = options;
     }
 
+    /// <summary>
+    /// Creates and fully initializes a new <see cref="TikTokBrowser"/> instance.
+    /// Launches Chromium with the settings from <paramref name="options"/> and creates
+    /// a new browser context with a realistic user-agent and locale.
+    /// </summary>
+    /// <param name="options">Browser launch and navigation options.</param>
     public static async Task<TikTokBrowser> CreateAsync(PlaywrightFetcherOptions options)
     {
         var playwright = await Playwright.CreateAsync();
@@ -43,8 +65,22 @@ internal sealed class TikTokBrowser : IAsyncDisposable
         return new TikTokBrowser(playwright, browser, context, options);
     }
 
+    /// <summary>
+    /// Resource types that are aborted to speed up page load times.
+    /// Images, media, fonts, and stylesheets are not needed to extract the JSON hydration data.
+    /// </summary>
     private static readonly string[] _blockedResourceTypes = ["image", "media", "font", "stylesheet"];
 
+    /// <summary>
+    /// Opens a new page in the shared context, navigates to <paramref name="url"/>,
+    /// waits for DOM content to load, and returns the full HTML source.
+    /// The page is closed after content is extracted regardless of success or failure.
+    /// </summary>
+    /// <param name="url">The TikTok video URL to navigate to.</param>
+    /// <param name="cancellationToken">Token to cancel the operation.</param>
+    /// <returns>The full HTML content of the loaded page.</returns>
+    /// <exception cref="TiktokParsingException">Thrown if the page fails to load (non-OK HTTP status).</exception>
+    /// <exception cref="TiktokWafException">Thrown if WAF challenge markers are found in the page content.</exception>
     public async Task<string> GetVideoPageAsync(
         string url,
         CancellationToken cancellationToken = default)
@@ -83,6 +119,10 @@ internal sealed class TikTokBrowser : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Returns all cookies currently set in the browser context as a list of
+    /// <see cref="CookieData"/> records, ready to be injected into the download client.
+    /// </summary>
     public async Task<IReadOnlyList<CookieData>> GetCookiesAsync()
     {
         var cookies = await _context.CookiesAsync();
@@ -96,6 +136,10 @@ internal sealed class TikTokBrowser : IAsyncDisposable
             })];
     }
 
+    /// <summary>
+    /// Disposes the browser context, the browser process, and the Playwright instance
+    /// in the correct reverse-dependency order.
+    /// </summary>
     public async ValueTask DisposeAsync()
     {
         await _context.DisposeAsync();

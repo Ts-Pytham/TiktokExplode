@@ -10,9 +10,27 @@ using TiktokExplode.Infrastructure.Common;
 
 namespace TiktokExplode.Infrastructure.Parsers;
 
+/// <summary>
+/// Parses a TikTok video page HTML string into a fully populated <see cref="Video"/> domain object.
+/// Extracts the JSON hydration data embedded in the <c>#__UNIVERSAL_DATA_FOR_REHYDRATION__</c>
+/// script tag and maps each field to its corresponding value object.
+/// </summary>
 internal sealed class TikTokVideoParser
 {
+    /// <summary>AngleSharp HTML parser used to query the hydration script element.</summary>
     private readonly HtmlParser _htmlParser = new();
+
+    /// <summary>
+    /// Parses a TikTok video page HTML string and returns the corresponding <see cref="Video"/>.
+    /// </summary>
+    /// <param name="htmlContent">The full HTML source of a TikTok video page.</param>
+    /// <returns>A fully populated <see cref="Video"/> domain object.</returns>
+    /// <exception cref="TiktokParsingException">
+    /// Thrown if the hydration script, required JSON nodes, or individual fields are missing or malformed.
+    /// </exception>
+    /// <exception cref="Domain.Exceptions.VideoNotFoundException">
+    /// Thrown if the <c>itemStruct</c> node is absent, indicating the video does not exist.
+    /// </exception>
     public async Task<Video> ParseAsync(string htmlContent) 
     {
         var document = await _htmlParser.ParseDocumentAsync(htmlContent);
@@ -25,6 +43,7 @@ internal sealed class TikTokVideoParser
         return ParseVideo(node);
     }
 
+    /// <summary>Extracts and navigates the JSON hydration tree to reach the <c>itemStruct</c> node.</summary>
     private static JsonNode ExtractItemStruct(IElement html)
     {
         var root = JsonNode.Parse(html.TextContent)
@@ -45,6 +64,7 @@ internal sealed class TikTokVideoParser
         return itemStruct;
     }
 
+    /// <summary>Maps a top-level <c>itemStruct</c> JSON node to a <see cref="Video"/> domain object.</summary>
     private static Video ParseVideo(JsonNode node)
     {
         var videoNode = node["video"]
@@ -70,6 +90,7 @@ internal sealed class TikTokVideoParser
         };
     }
 
+    /// <summary>Maps the <c>music.preciseDuration</c> sub-tree to a <see cref="VideoDuration"/>.</summary>
     private static VideoDuration ParseVideoDuration(JsonNode node)
     {
         var videoDurationNode = node["preciseDuration"]
@@ -82,6 +103,7 @@ internal sealed class TikTokVideoParser
         };
     }
 
+    /// <summary>Maps the <c>author</c> and <c>authorStatsV2</c> sub-trees to an <see cref="Author"/>.</summary>
     private static Author ParseAuthor(JsonNode node)
     {
         var author = node["author"]
@@ -104,6 +126,7 @@ internal sealed class TikTokVideoParser
         };
     }
 
+    /// <summary>Maps the <c>authorStatsV2</c> node to an <see cref="AuthorStats"/>.</summary>
     private static AuthorStats ParseAuthorStats(JsonNode authorStatsNode)
     {
         return new AuthorStats
@@ -116,6 +139,7 @@ internal sealed class TikTokVideoParser
         };
     }
 
+    /// <summary>Extracts the three avatar URL variants (<c>Large</c>, <c>Medium</c>, <c>Thumb</c>) from the author node.</summary>
     private static ProfileImageVariants ParseProfileImageVariants(JsonNode author)
     {
         return new ProfileImageVariants
@@ -126,6 +150,7 @@ internal sealed class TikTokVideoParser
         };
     }
 
+    /// <summary>Maps the <c>video</c> sub-tree to a <see cref="VideoInfo"/>.</summary>
     private static VideoInfo ParseVideoInfo(JsonNode node)
     {
         var bitrateInfoNode = node["bitrateInfo"]
@@ -142,6 +167,7 @@ internal sealed class TikTokVideoParser
         };
     }
 
+    /// <summary>Extracts CDN download URLs and file size from the <c>video</c> node.</summary>
     private static VideoDownloadLinks ParseDownloadLinks(JsonNode node)
     {
         return new VideoDownloadLinks
@@ -152,6 +178,7 @@ internal sealed class TikTokVideoParser
         };
     }
 
+    /// <summary>Maps the <c>statsV2</c> node to a <see cref="VideoStats"/>.</summary>
     private static VideoStats ParseVideoStats(JsonNode node)
     {
         return new VideoStats
@@ -165,6 +192,7 @@ internal sealed class TikTokVideoParser
         };
     }
 
+    /// <summary>Converts the <c>bitrateInfo</c> JSON array into a <see cref="Bitrate"/> array.</summary>
     private static Bitrate[] ParseBitrates(JsonNode node)
     {
         return [.. node.AsArray()
@@ -179,6 +207,10 @@ internal sealed class TikTokVideoParser
             })];
     }
 
+    /// <summary>
+    /// Parses the <c>Format</c> string from a bitrate node into a <see cref="BitrateFormat"/> enum.
+    /// Returns <see cref="BitrateFormat.Unknown"/> for unrecognised format strings.
+    /// </summary>
     private static BitrateFormat ParseBitrateFormat(JsonNode bitrateNode)
     {
         var raw = bitrateNode.GetString("Format");
@@ -187,6 +219,7 @@ internal sealed class TikTokVideoParser
             : BitrateFormat.Unknown;
     }
 
+    /// <summary>Maps the <c>textLanguage</c> and <c>textTranslatable</c> fields to a <see cref="VideoLanguage"/>.</summary>
     private static VideoLanguage ParseVideoLanguage(JsonNode node)
     {
         return new VideoLanguage

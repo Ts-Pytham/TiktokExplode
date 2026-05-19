@@ -3,6 +3,7 @@ using TiktokExplode.Domain.Abstractions;
 using TiktokExplode.Domain.Entities;
 using TiktokExplode.Domain.Exceptions;
 using TiktokExplode.Domain.Utilities;
+using TiktokExplode.Domain.ValueObjects;
 using TiktokExplode.Infrastructure.Fetchers;
 using TiktokExplode.Infrastructure.Http;
 using TiktokExplode.Infrastructure.Options;
@@ -38,16 +39,19 @@ public sealed class TiktokClient(IPageFetcher fetcher, TikTokOptions options) : 
         throw new UnreachableException();
     }
 
-    public Task<Stream> DownloadAsync(Video video, CancellationToken cancellationToken = default)
+    internal Task<StreamInfo> DownloadCoreAsync(
+        string url,
+        CancellationToken cancellationToken = default)
+        => _downloadClient.DownloadVideoAsync(url, cancellationToken);
+
+    public async Task<StreamInfo> DownloadAsync(Video video, CancellationToken cancellationToken = default)
     {
-        var url = video.Info.DownloadLinks.OriginalUrl;
-        return _downloadClient.DownloadVideoAsync(url, cancellationToken);
+        return await DownloadCoreAsync(video.Info.DownloadLinks.OriginalUrl, cancellationToken);
     }
 
-    public Task<Stream> DownloadWatermarkedAsync(Video video, CancellationToken cancellationToken = default)
+    public async Task<StreamInfo> DownloadWatermarkedAsync(Video video, CancellationToken cancellationToken = default)
     {
-        var url = video.Info.DownloadLinks.WatermarkedUrl;
-        return _downloadClient.DownloadVideoAsync(url, cancellationToken);
+        return await DownloadCoreAsync(video.Info.DownloadLinks.WatermarkedUrl, cancellationToken);
     }
 
     public async ValueTask DisposeAsync()

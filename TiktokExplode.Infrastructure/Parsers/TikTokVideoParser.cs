@@ -148,7 +148,7 @@ internal sealed class TikTokVideoParser
         {
             OriginalUrl     = node.GetString("playAddr"),
             WatermarkedUrl  = node.GetString("downloadAddr"),
-            SizeInBytes     = node.GetNumber<long>("size")
+            OriginalSizeInBytes     = node.GetNumber<long>("size")
         };
     }
 

@@ -1,4 +1,5 @@
 using System.Net;
+using TiktokExplode.Domain.ValueObjects;
 using TiktokExplode.Infrastructure.Fetchers;
 
 namespace TiktokExplode.Infrastructure.Http;
@@ -94,7 +95,7 @@ public sealed class TikTokDownloadClient : IDisposable
     }
 
     
-    public async Task<Stream> DownloadVideoAsync(
+    public async Task<StreamInfo> DownloadVideoAsync(
         string url,
         CancellationToken cancellationToken = default)
     {
@@ -114,11 +115,18 @@ public sealed class TikTokDownloadClient : IDisposable
 
         if (!videoResponse.IsSuccessStatusCode)
         {
+            videoResponse.Dispose();
             throw new HttpRequestException(
                 $"Failed to download video. Status code: {videoResponse.StatusCode}");
         }
 
-        return await videoResponse.Content.ReadAsStreamAsync(cancellationToken);
+        var contentLength = videoResponse.Content.Headers.ContentLength ?? -1;
+        var stream = await videoResponse.Content.ReadAsStreamAsync(cancellationToken);
+        return new StreamInfo
+        {
+            Stream          = stream,
+            ContentLength   = contentLength
+        }; 
     }
 
     /// <summary>

@@ -34,4 +34,7 @@ public sealed class Video
 
     /// <summary>The playback duration of the video.</summary>
     public VideoDuration Duration { get; init; }
+
+    /// <summary>Cover thumbnail URLs for this video — static frame and animated (looping) preview.</summary>
+    public VideoCover Cover { get; init; } = new();
 }

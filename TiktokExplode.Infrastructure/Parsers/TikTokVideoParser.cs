@@ -84,6 +84,7 @@ internal sealed class TikTokVideoParser
             Stats       = ParseVideoStats(statsNode),
             Duration    = ParseVideoDuration(musicNode),
             Language    = ParseVideoLanguage(node),
+            Cover       = ParseVideoCover(videoNode),
             Description = node.GetStringOrEmpty("desc"),
             Location    = node.GetStringOrEmpty("locationCreated"),
             CreatedAt   = DateTimeOffset.FromUnixTimeSeconds(node.GetNumber<long>("createTime")),
@@ -226,6 +227,15 @@ internal sealed class TikTokVideoParser
         {
             PrimaryLanguage = node.GetStringOrEmpty("textLanguage"),
             IsTranslatable = node.GetBool("textTranslatable")
+        };
+    }
+
+    private static VideoCover ParseVideoCover(JsonNode node)
+    {
+        return new VideoCover
+        {
+            AnimatedUrl = node.GetString("dynamicCover"),
+            StaticUrl   = node.GetString("cover")
         };
     }
 }

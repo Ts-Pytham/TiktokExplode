@@ -1,5 +1,6 @@
 ﻿using TiktokExplode.Domain.Abstractions;
 using TiktokExplode.Domain.Entities;
+using TiktokExplode.Domain.Exceptions;
 
 namespace TiktokExplode.Infrastructure.Common;
 
@@ -9,6 +10,8 @@ namespace TiktokExplode.Infrastructure.Common;
 /// </summary>
 public static class TiktokClientExtensions
 {
+    private static readonly HttpClient _httpClient = new();
+
     extension(IVideoClient client)
     {
         /// <summary>
@@ -21,9 +24,9 @@ public static class TiktokClientExtensions
         /// <param name="progress">Optional callback for progress updates (0.0 = start, 1.0 = complete).</param>
         /// <param name="cancellationToken">Token to cancel the operation.</param>
         public async Task DownloadAsync(
-            Video video, 
-            string filePath, 
-            IProgress<double>? progress = null, 
+            Video video,
+            string filePath,
+            IProgress<double>? progress = null,
             CancellationToken cancellationToken = default)
         {
             await using var destination = File.Create(filePath);
@@ -50,6 +53,54 @@ public static class TiktokClientExtensions
             await using var streamInfo = await client.DownloadWatermarkedAsync(
                 video, cancellationToken);
             await streamInfo.Stream.CopyToAsync(destination, streamInfo.ContentLength, progress, cancellationToken);
+        }
+
+        /// <summary>
+        /// Downloads the static cover image of <paramref name="video"/> to a file at <paramref name="filePath"/>.
+        /// </summary>
+        /// <param name="video">The video whose cover image to download.</param>
+        /// <param name="filePath">Path to the output file. The file is created or overwritten.</param>
+        /// <param name="cancellationToken">Token to cancel the operation.</param>
+        public async Task DownloadImageAsync(
+            Video video,
+            string filePath = "cover.jpg",
+            CancellationToken cancellationToken = default)
+        {
+            await using var destination = File.Create(filePath);
+            var url = video.Cover.StaticUrl;
+
+            var response = await _httpClient.GetAsync(url, cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new TiktokException($"Failed to download image from {url}. Status code: {response.StatusCode}");
+            }
+
+            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+            await stream.CopyToAsync(destination, cancellationToken);
+        }
+
+        /// <summary>
+        /// Downloads the animated cover image (animated WebP) of <paramref name="video"/> to a file at <paramref name="filePath"/>.
+        /// </summary>
+        /// <remarks>TikTok serves animated covers as WebP — open with a browser or an image viewer that supports animated WebP.</remarks>
+        /// <param name="video">The video whose animated cover to download.</param>
+        /// <param name="filePath">Path to the output file. The file is created or overwritten.</param>
+        /// <param name="cancellationToken">Token to cancel the operation.</param>
+        public async Task DownloadAnimatedImageAsync(
+            Video video,
+            string filePath = "cover.webp",
+            CancellationToken cancellationToken = default)
+        {
+            await using var destination = File.Create(filePath);
+            var url = video.Cover.AnimatedUrl;
+            var response = await _httpClient.GetAsync(url, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new TiktokException($"Failed to download animated image from {url}. Status code: {response.StatusCode}");
+            }
+            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+            await stream.CopyToAsync(destination, cancellationToken);
         }
     }
 }

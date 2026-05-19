@@ -8,14 +8,14 @@ namespace TiktokExplode.Tests.Infrastructure;
 /// </summary>
 internal static class TikTokFixtures
 {
-    // ── Helpers ───────────────────────────────────────────────────────────────
+  // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private static string Wrap(string json) =>
-        $"""<!DOCTYPE html><html><body><script id="__UNIVERSAL_DATA_FOR_REHYDRATION__" type="application/json">{json}</script></body></html>""";
+  private static string Wrap(string json) =>
+      $"""<!DOCTYPE html><html><body><script id="__UNIVERSAL_DATA_FOR_REHYDRATION__" type="application/json">{json}</script></body></html>""";
 
-    // ── Valid fixture ─────────────────────────────────────────────────────────
+  // ── Valid fixture ─────────────────────────────────────────────────────────
 
-    public static readonly string ValidVideoHtml = Wrap("""
+  public static readonly string ValidVideoHtml = Wrap("""
         {
           "__DEFAULT_SCOPE__": {
             "webapp.video-detail": {
@@ -51,6 +51,8 @@ internal static class TikTokFixtures
                     "videoQuality": "normal",
                     "width": 1080,
                     "height": 1920,
+                    "cover": "https://cdn.example.com/cover_static.jpg",
+                    "dynamicCover": "https://cdn.example.com/cover_animated.webp",
                     "playAddr": "https://cdn.example.com/play/video.mp4",
                     "downloadAddr": "https://cdn.example.com/download/video.mp4",
                     "size": "10485760",
@@ -84,20 +86,20 @@ internal static class TikTokFixtures
         }
         """);
 
-    public static PageFetchResult ValidVideoResult => new()
-    {
-        HtmlContent = ValidVideoHtml,
-        Cookies = []
-    };
+  public static PageFetchResult ValidVideoResult => new()
+  {
+    HtmlContent = ValidVideoHtml,
+    Cookies = []
+  };
 
-    // ── Error fixtures ────────────────────────────────────────────────────────
+  // ── Error fixtures ────────────────────────────────────────────────────────
 
-    /// <summary>Plain HTML without the hydration script tag.</summary>
-    public static readonly string NoHydrationScriptHtml =
-        "<html><body><p>No script here</p></body></html>";
+  /// <summary>Plain HTML without the hydration script tag.</summary>
+  public static readonly string NoHydrationScriptHtml =
+      "<html><body><p>No script here</p></body></html>";
 
-    /// <summary>Valid JSON structure but <c>itemStruct</c> is absent → <see cref="Domain.Exceptions.VideoNotFoundException"/>.</summary>
-    public static readonly string MissingItemStructHtml = Wrap("""
+  /// <summary>Valid JSON structure but <c>itemStruct</c> is absent → <see cref="Domain.Exceptions.VideoNotFoundException"/>.</summary>
+  public static readonly string MissingItemStructHtml = Wrap("""
         {
           "__DEFAULT_SCOPE__": {
             "webapp.video-detail": {
@@ -107,6 +109,6 @@ internal static class TikTokFixtures
         }
         """);
 
-    /// <summary>JSON root without <c>__DEFAULT_SCOPE__</c> → <see cref="Domain.Exceptions.TiktokParsingException"/>.</summary>
-    public static readonly string MissingDefaultScopeHtml = Wrap("""{"other":"data"}""");
+  /// <summary>JSON root without <c>__DEFAULT_SCOPE__</c> → <see cref="Domain.Exceptions.TiktokParsingException"/>.</summary>
+  public static readonly string MissingDefaultScopeHtml = Wrap("""{"other":"data"}""");
 }

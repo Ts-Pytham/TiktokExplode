@@ -21,10 +21,12 @@
     <RepositoryUrl>https://github.com/Ts-Pytham/TiktokExplode</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>icon.png</PackageIcon>
   </PropertyGroup>
 
   <ItemGroup>
     <None Include="..\README.md" Pack="true" PackagePath="\"/>
+    <None Include="..\assets\icon.png" Pack="true" PackagePath="\"/>
   </ItemGroup>
 
 </Project>

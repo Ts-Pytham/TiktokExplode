@@ -6,6 +6,10 @@
 [![.NET](https://img.shields.io/badge/.NET-8.0%20%7C%209.0-512BD4)](https://dotnet.microsoft.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+<p align="center">
+  <img src="assets/icon.png" alt="TiktokExplode" width="140" />
+</p>
+
 **TiktokExplode** is a .NET library that lets you retrieve metadata and download videos from TikTok programmatically. It handles session management, cookie injection, and WAF/bot-detection bypassing behind a simple, clean API — so you can focus on using the data instead of fighting the platform.
 
 The library follows **Clean Architecture**: the domain layer (`TiktokExplode`) has zero external dependencies and exposes immutable, strongly-typed models, while the infrastructure layer (`TiktokExplode.Infrastructure`) handles all HTTP and browser-based concerns.
@@ -16,6 +20,7 @@ The library follows **Clean Architecture**: the domain layer (`TiktokExplode`) h
 
 - Fetch full video metadata: author, stats, duration, language, location, bitrates, and more
 - Download videos without watermark or with watermark
+- Download the static cover image (JPEG) or the animated cover (WebP)
 - Progress reporting during download via `IProgress<double>`
 - Automatic WAF/bot-detection retry with configurable backoff
 - **Strategy pattern** — choose between Playwright (reliable) or HTTP-only (lightweight) page fetching
@@ -42,6 +47,7 @@ dotnet add package TiktokExplode.Infrastructure
 > Install `TiktokExplode` alone only if you need the domain models/interfaces without the infrastructure.
 
 > **Note:** `TiktokExplode.Infrastructure` depends on [Microsoft.Playwright](https://playwright.dev/dotnet/). After installation, run the following once to download the browser binaries:
+>
 > ```
 > pwsh -c "playwright install chromium"
 > ```
@@ -100,21 +106,34 @@ await using var client = new TiktokClient(myFetcher, new TikTokOptions());
 
 #### Methods
 
-| Method | Returns | Description |
-|--------|---------|-------------|
-| `GetVideoAsync(string url, CancellationToken)` | `Video` | Fetches full video metadata |
-| `DownloadAsync(Video, CancellationToken)` | `StreamInfo` | Downloads video without watermark |
-| `DownloadWatermarkedAsync(Video, CancellationToken)` | `StreamInfo` | Downloads video with watermark |
+| Method                                               | Returns      | Description                       |
+| ---------------------------------------------------- | ------------ | --------------------------------- |
+| `GetVideoAsync(string url, CancellationToken)`       | `Video`      | Fetches full video metadata       |
+| `DownloadAsync(Video, CancellationToken)`            | `StreamInfo` | Downloads video without watermark |
+| `DownloadWatermarkedAsync(Video, CancellationToken)` | `StreamInfo` | Downloads video with watermark    |
 
 `TiktokClient` implements `IAsyncDisposable` — always use `await using`.
 
 #### Extension methods (via `TiktokClientExtensions`)
 
+| Method | Description |
+| --- | --- |
+| `DownloadAsync(video, filePath, progress?, ct)` | Downloads video without watermark to a file, with optional progress |
+| `DownloadWatermarkedAsync(video, filePath, progress?, ct)` | Downloads video with watermark to a file, with optional progress |
+| `DownloadImageAsync(video, filePath, ct)` | Downloads the static cover image (JPEG) |
+| `DownloadAnimatedImageAsync(video, filePath, ct)` | Downloads the animated cover (WebP) |
+
 ```csharp
 // Download to file path with optional progress
 await client.DownloadAsync(video, "output.mp4", progress, cancellationToken);
 await client.DownloadWatermarkedAsync(video, "output_wm.mp4", progress, cancellationToken);
+
+// Download cover images
+await client.DownloadImageAsync(video, "cover.jpg");
+await client.DownloadAnimatedImageAsync(video, "cover.webp");
 ```
+
+> **Note:** Animated covers are served by TikTok as animated WebP files. Not all videos have an animated cover — if `Cover.AnimatedUrl` is empty, the video only has a static cover.
 
 `ContentLength` is sourced from the CDN response headers — always accurate, no estimate from metadata.
 
@@ -124,64 +143,65 @@ await client.DownloadWatermarkedAsync(video, "output_wm.mp4", progress, cancella
 
 Returned by `DownloadAsync` and `DownloadWatermarkedAsync`. Implements `IAsyncDisposable`.
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `Stream` | `Stream` | The video content stream |
-| `ContentLength` | `long` | Exact file size in bytes from CDN |
+| Property        | Type     | Description                       |
+| --------------- | -------- | --------------------------------- |
+| `Stream`        | `Stream` | The video content stream          |
+| `ContentLength` | `long`   | Exact file size in bytes from CDN |
 
 ---
 
 ### `TikTokOptions`
 
-| Property | Default | Description |
-|----------|---------|-------------|
-| `MaxWafRetries` | `3` | Max retries on WAF detection |
-| `RetryBaseDelay` | `2s` | Base delay between retries (grows linearly) |
+| Property         | Default | Description                                 |
+| ---------------- | ------- | ------------------------------------------- |
+| `MaxWafRetries`  | `3`     | Max retries on WAF detection                |
+| `RetryBaseDelay` | `2s`    | Base delay between retries (grows linearly) |
 
 ### `PlaywrightFetcherOptions`
 
-| Property | Default | Description |
-|----------|---------|-------------|
-| `BrowserChannel` | `null` | Browser channel (e.g. `"msedge"`, `"chrome"`). `null` uses Playwright's bundled Chromium |
-| `Headless` | `true` | Run browser in headless mode |
-| `PageTimeoutMs` | `30000` | Navigation timeout in milliseconds |
+| Property         | Default | Description                                                                              |
+| ---------------- | ------- | ---------------------------------------------------------------------------------------- |
+| `BrowserChannel` | `null`  | Browser channel (e.g. `"msedge"`, `"chrome"`). `null` uses Playwright's bundled Chromium |
+| `Headless`       | `true`  | Run browser in headless mode                                                             |
+| `PageTimeoutMs`  | `30000` | Navigation timeout in milliseconds                                                       |
 
 ### `HttpFetcherOptions`
 
-| Property | Default | Description |
-|----------|---------|-------------|
-| `UserAgent` | Chrome 136 UA | User-Agent header sent with requests |
-| `WarmupDelay` | `1200ms` | Delay after warmup request before fetching |
+| Property      | Default       | Description                                |
+| ------------- | ------------- | ------------------------------------------ |
+| `UserAgent`   | Chrome 136 UA | User-Agent header sent with requests       |
+| `WarmupDelay` | `1200ms`      | Delay after warmup request before fetching |
 
 ---
 
 ### `Video` model
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `Id` | `string` | TikTok video ID |
-| `Description` | `string` | Caption / description |
-| `Author` | `Author` | Author entity |
-| `Duration` | `VideoDuration` | Duration in seconds and precise seconds |
-| `Stats` | `VideoStats` | Views, likes, comments, shares, favorites, reposts |
-| `Info` | `VideoInfo` | Technical info, bitrates, and download URLs |
-| `Language` | `VideoLanguage` | Detected content language |
-| `Location` | `string` | Location tag (if any) |
-| `CreatedAt` | `DateTimeOffset` | Upload date |
+| Property      | Type             | Description                                        |
+| ------------- | ---------------- | -------------------------------------------------- |
+| `Id`          | `string`         | TikTok video ID                                    |
+| `Description` | `string`         | Caption / description                              |
+| `Author`      | `Author`         | Author entity                                      |
+| `Duration`    | `VideoDuration`  | Duration in seconds and precise seconds            |
+| `Stats`       | `VideoStats`     | Views, likes, comments, shares, favorites, reposts |
+| `Info`        | `VideoInfo`      | Technical info, bitrates, and download URLs        |
+| `Language`    | `VideoLanguage`  | Detected content language                          |
+| `Location`    | `string`         | Location tag (if any)                              |
+| `Cover`       | `VideoCover`     | Static (JPEG) and animated (WebP) cover image URLs |
+| `CreatedAt`   | `DateTimeOffset` | Upload date                                        |
 
 ### `Author` model
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `Id` | `string` | Internal TikTok user ID |
-| `UniqueId` | `string` | Handle (e.g. `johndoe`) |
-| `Name` | `string` | Display name |
-| `Description` | `string` | Bio |
-| `IsVerified` | `bool` | Verified badge |
-| `IsPrivate` | `bool` | Private account |
-| `Avatar` | `ProfileImageVariants` | Avatar image URLs (small, medium, large) |
-| `Stats` | `AuthorStats` | Followers, following, friends, likes received, video count |
-| `CreatedAt` | `DateTimeOffset` | Account creation date |
+| Property      | Type                   | Description                                                |
+| ------------- | ---------------------- | ---------------------------------------------------------- |
+| `Id`          | `string`               | Internal TikTok user ID                                    |
+| `UniqueId`    | `string`               | Handle (e.g. `johndoe`)                                    |
+| `Name`        | `string`               | Display name                                               |
+| `Description` | `string`               | Bio                                                        |
+| `IsVerified`  | `bool`                 | Verified badge                                             |
+| `IsPrivate`   | `bool`                 | Private account                                            |
+| `Avatar`      | `ProfileImageVariants` | Avatar image URLs (small, medium, large)                   |
+| `Stats`       | `AuthorStats`          | Followers, following, friends, likes received, video count |
+| `CreatedAt`   | `DateTimeOffset`       | Account creation date                                      |
 
 ---
 

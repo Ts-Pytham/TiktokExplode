@@ -86,6 +86,10 @@ public class TikTokVideoParserTests
         // Duration
         video.Duration.Seconds.Should().Be(15);
         video.Duration.PreciseSeconds.Should().BeApproximately(15.123, precision: 0.001);
+
+        // Cover
+        video.Cover.StaticUrl.Should().Be("https://cdn.example.com/cover_static.jpg");
+        video.Cover.AnimatedUrl.Should().Be("https://cdn.example.com/cover_animated.webp");
     }
 
     [Fact]

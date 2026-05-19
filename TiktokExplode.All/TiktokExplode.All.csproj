@@ -1,21 +1,20 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <RootNamespace>TiktokExplode</RootNamespace>
-    <AssemblyName>TiktokExplode</AssemblyName>
-    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
   </PropertyGroup>
 
   <PropertyGroup>
-    <PackageId>TiktokExplode</PackageId>
+    <PackageId>TiktokExplode.All</PackageId>
     <Version>1.0.0</Version>
     <Authors>Ts-Pytham</Authors>
     <Owners>Ts-Pytham</Owners>
-    <Description>Domain layer for TiktokExplode: strongly-typed models, interfaces, and utilities for working with TikTok video metadata. Zero external dependencies.</Description>
-    <PackageTags>tiktok;downloader;scraper;metadata;dotnet</PackageTags>
+    <Description>Meta-package that installs TiktokExplode (domain layer) and TiktokExplode.Infrastructure (HTTP/browser fetchers, parser, download client) in a single command.</Description>
+    <PackageTags>tiktok;downloader;scraper;dotnet;metapackage</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/Ts-Pytham/TiktokExplode</PackageProjectUrl>
     <RepositoryUrl>https://github.com/Ts-Pytham/TiktokExplode</RepositoryUrl>
@@ -25,6 +24,11 @@
 
   <ItemGroup>
     <None Include="..\README.md" Pack="true" PackagePath="\"/>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TiktokExplode\TiktokExplode.csproj" />
+    <ProjectReference Include="..\TiktokExplode.Infrastructure\TiktokExplode.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

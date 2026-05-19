@@ -12,9 +12,11 @@ The library follows **Clean Architecture**: the domain layer (`TiktokExplode`) h
 
 ## Features
 
-- Fetch full video metadata: title, author, stats, duration, language, location, and more
+- Fetch full video metadata: author, stats, duration, language, location, bitrates, and more
 - Download videos without watermark or with watermark
+- Progress reporting during download via `IProgress<double>`
 - Automatic WAF/bot-detection retry with configurable backoff
+- **Strategy pattern** — choose between Playwright (reliable) or HTTP-only (lightweight) page fetching
 - Clean Architecture — pure domain with zero external dependencies
 - Targets **net8.0** and **net9.0**
 
@@ -28,7 +30,7 @@ dotnet add package TiktokExplode.Infrastructure
 ```
 
 > `TiktokExplode` contains the domain models and interfaces.  
-> `TiktokExplode.Infrastructure` contains the HTTP client and parsing logic.
+> `TiktokExplode.Infrastructure` contains the HTTP client, browser automation, and parsing logic.
 
 ---
 
@@ -36,8 +38,9 @@ dotnet add package TiktokExplode.Infrastructure
 
 ```csharp
 using TiktokExplode.Infrastructure.Clients;
+using TiktokExplode.Infrastructure.Common;
 
-await using var client = new TiktokClient();
+await using var client = TiktokClient.CreateWithBrowser();
 
 var video = await client.GetVideoAsync("https://www.tiktok.com/@user/video/1234567890");
 
@@ -47,10 +50,14 @@ Console.WriteLine($"Duration: {video.Duration.Seconds}s");
 Console.WriteLine($"Views:    {video.Stats.Views}");
 Console.WriteLine($"Likes:    {video.Stats.Likes}");
 
-// Download without watermark
-await using var stream = await client.DownloadAsync(video);
+// Download without watermark (stream + content length)
+await using var streamInfo = await client.DownloadAsync(video);
 await using var file = File.Create($"{video.Id}.mp4");
-await stream.CopyToAsync(file);
+await streamInfo.Stream.CopyToAsync(file);
+
+// Or use the extension to download directly to a file with progress
+IProgress<double> progress = new Progress<double>(p => Console.Write($"\rProgress: {p:P0}"));
+await client.DownloadAsync(video, $"{video.Id}.mp4", progress);
 ```
 
 ---
@@ -59,27 +66,78 @@ await stream.CopyToAsync(file);
 
 ### `TiktokClient`
 
-```csharp
-// Default options
-var client = new TiktokClient();
+`TiktokClient` uses the **Strategy pattern** to decouple page fetching from downloading. Use the factory methods to choose a strategy:
 
-// Custom options
-var client = new TiktokClient(new TikTokOptions
-{
-    MaxWafRetries  = 5,
-    RetryBaseDelay = TimeSpan.FromSeconds(3),
-});
+```csharp
+// Playwright — uses a real browser to bypass WAF (recommended)
+await using var client = TiktokClient.CreateWithBrowser();
+
+// Playwright with custom options
+await using var client = TiktokClient.CreateWithBrowser(
+    new PlaywrightFetcherOptions { BrowserChannel = "msedge", Headless = true },
+    new TikTokOptions { MaxWafRetries = 5 });
+
+// HTTP-only — lightweight, may be blocked by WAF
+await using var client = TiktokClient.CreateWithHttp();
+
+// Inject your own IPageFetcher implementation
+await using var client = new TiktokClient(myFetcher, new TikTokOptions());
 ```
 
 #### Methods
 
-| Method | Description |
-|--------|-------------|
-| `GetVideoAsync(string url, CancellationToken)` | Fetches full video metadata |
-| `DownloadAsync(Video video, CancellationToken)` | Downloads the video without watermark |
-| `DownloadWatermarkedAsync(Video video, CancellationToken)` | Downloads the video with watermark |
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `GetVideoAsync(string url, CancellationToken)` | `Video` | Fetches full video metadata |
+| `DownloadAsync(Video, CancellationToken)` | `StreamInfo` | Downloads video without watermark |
+| `DownloadWatermarkedAsync(Video, CancellationToken)` | `StreamInfo` | Downloads video with watermark |
 
-`TiktokClient` implements `IAsyncDisposable` — use `await using` or dispose explicitly.
+`TiktokClient` implements `IAsyncDisposable` — always use `await using`.
+
+#### Extension methods (via `TiktokClientExtensions`)
+
+```csharp
+// Download to file path with optional progress
+await client.DownloadAsync(video, "output.mp4", progress, cancellationToken);
+await client.DownloadWatermarkedAsync(video, "output_wm.mp4", progress, cancellationToken);
+```
+
+`ContentLength` is sourced from the CDN response headers — always accurate, no estimate from metadata.
+
+---
+
+### `StreamInfo`
+
+Returned by `DownloadAsync` and `DownloadWatermarkedAsync`. Implements `IAsyncDisposable`.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `Stream` | `Stream` | The video content stream |
+| `ContentLength` | `long` | Exact file size in bytes from CDN |
+
+---
+
+### `TikTokOptions`
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `MaxWafRetries` | `3` | Max retries on WAF detection |
+| `RetryBaseDelay` | `2s` | Base delay between retries (grows linearly) |
+
+### `PlaywrightFetcherOptions`
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `BrowserChannel` | `null` | Browser channel (e.g. `"msedge"`, `"chrome"`). `null` uses Playwright's bundled Chromium |
+| `Headless` | `true` | Run browser in headless mode |
+| `PageTimeoutMs` | `30000` | Navigation timeout in milliseconds |
+
+### `HttpFetcherOptions`
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `UserAgent` | Chrome 136 UA | User-Agent header sent with requests |
+| `WarmupDelay` | `1200ms` | Delay after warmup request before fetching |
 
 ---
 
@@ -90,9 +148,9 @@ var client = new TiktokClient(new TikTokOptions
 | `Id` | `string` | TikTok video ID |
 | `Description` | `string` | Caption / description |
 | `Author` | `Author` | Author entity |
-| `Duration` | `VideoDuration` | Duration in seconds |
-| `Stats` | `VideoStats` | Views, likes, comments, shares |
-| `Info` | `VideoInfo` | Technical info + download URLs |
+| `Duration` | `VideoDuration` | Duration in seconds and precise seconds |
+| `Stats` | `VideoStats` | Views, likes, comments, shares, favorites, reposts |
+| `Info` | `VideoInfo` | Technical info, bitrates, and download URLs |
 | `Language` | `VideoLanguage` | Detected content language |
 | `Location` | `string` | Location tag (if any) |
 | `CreatedAt` | `DateTimeOffset` | Upload date |
@@ -107,19 +165,9 @@ var client = new TiktokClient(new TikTokOptions
 | `Description` | `string` | Bio |
 | `IsVerified` | `bool` | Verified badge |
 | `IsPrivate` | `bool` | Private account |
-| `Avatar` | `ProfileImageVariants` | Avatar image URLs |
-| `Stats` | `AuthorStats` | Followers, following, likes |
+| `Avatar` | `ProfileImageVariants` | Avatar image URLs (small, medium, large) |
+| `Stats` | `AuthorStats` | Followers, following, friends, likes received, video count |
 | `CreatedAt` | `DateTimeOffset` | Account creation date |
-
----
-
-### `TikTokOptions`
-
-| Property | Default | Description |
-|----------|---------|-------------|
-| `MaxWafRetries` | `3` | Max retries on WAF detection |
-| `RetryBaseDelay` | `2s` | Base delay between retries (grows linearly) |
-| `RequestDelay` | `1200ms` | Delay between warmup and actual request |
 
 ---
 
@@ -134,7 +182,7 @@ try
 }
 catch (TiktokWafException ex)
 {
-    // Bot detection triggered after all retries
+    // Bot detection triggered after all retries exhausted
 }
 catch (VideoNotFoundException ex)
 {
@@ -142,7 +190,7 @@ catch (VideoNotFoundException ex)
 }
 catch (TiktokParsingException ex)
 {
-    // Unexpected page structure (TikTok changed their HTML)
+    // Unexpected page structure (TikTok changed their HTML/JSON)
 }
 catch (TiktokException ex)
 {
@@ -155,20 +203,22 @@ catch (TiktokException ex)
 ## Project Structure
 
 ```
-TiktokExplode/               # Domain — zero external dependencies
+TiktokExplode/                # Domain — zero external dependencies
   Domain/
-    Entities/                # Video, Author
-    ValueObjects/            # VideoInfo, VideoStats, VideoDuration, etc.
-    Abstractions/            # IVideoClient
-    Exceptions/              # TiktokException hierarchy
-    Utilities/               # URL validation
+    Entities/                 # Video, Author
+    ValueObjects/             # VideoInfo, StreamInfo, VideoStats, VideoDuration, etc.
+    Abstractions/             # IVideoClient, IPageFetcher
+    Exceptions/               # TiktokException hierarchy
+    Utilities/                # URL validation
 
-TiktokExplode.Infrastructure/ # HTTP + parsing (uses PuppeteerSharp / AngleSharp)
-  Clients/                   # TiktokClient : IVideoClient
-  Http/                      # TikTokSession — cookie & download management
-  Browser/                   # TikTokBrowser — headless browser session
-  Parsers/                   # TikTokVideoParser — JSON extraction
-  Options/                   # TikTokOptions
+TiktokExplode.Infrastructure/ # HTTP + browser automation (Playwright + AngleSharp)
+  Clients/                    # TiktokClient : IVideoClient
+  Fetchers/                   # IPageFetcher, PlaywrightFetcher, HttpFetcher
+  Http/                       # TikTokDownloadClient — CDN download management
+  Browser/                    # TikTokBrowser — internal Playwright wrapper
+  Parsers/                    # TikTokVideoParser — JSON extraction from hydration script
+  Options/                    # TikTokOptions, PlaywrightFetcherOptions, HttpFetcherOptions
+  Common/                     # StreamExtensions, TiktokClientExtensions
 ```
 
 ---

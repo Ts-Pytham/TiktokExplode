@@ -3,11 +3,21 @@ using TiktokExplode.Infrastructure.Clients;
 using TiktokExplode.Infrastructure.Common;
 using TiktokExplode.Infrastructure.Options;
 
-Console.WriteLine("Ingrese la URL (Enter para usar la URL de prueba):");
+const string Separator = "─────────────────────────────────────────";
+const string DefaultUrl = "https://www.tiktok.com/@js_nightwave/video/7579504710961548565";
+
+Console.WriteLine("TiktokExplode — Video Downloader");
+Console.WriteLine(Separator);
+Console.Write("Video URL (press Enter for default): ");
 var url = Console.ReadLine();
 
 if (string.IsNullOrWhiteSpace(url))
-    url = "https://www.tiktok.com/@js_nightwave/video/7579504710961548565";
+{
+    url = DefaultUrl;
+    Console.WriteLine($"Using default: {url}");
+}
+
+Console.WriteLine(Separator);
 
 await using var client = TiktokClient.CreateWithBrowser(new PlaywrightFetcherOptions
 {
@@ -16,41 +26,58 @@ await using var client = TiktokClient.CreateWithBrowser(new PlaywrightFetcherOpt
 
 try
 {
-    Console.WriteLine("Obteniendo metadatos del video...");
+    Console.Write("Fetching video metadata...");
     var video = await client.GetVideoAsync(url);
+    Console.WriteLine(" done.");
+    Console.WriteLine(Separator);
 
-    Console.WriteLine($"ID:          {video.Id}");
-    Console.WriteLine($"Autor:       {video.Author.Name} (@{video.Author.UniqueId})");
-    Console.WriteLine($"Duracion:    {video.Duration.Seconds}s");
-    Console.WriteLine($"Vistas:      {video.Stats.Views}");
-    Console.WriteLine($"Likes:       {video.Stats.Likes}");
-    Console.WriteLine($"Peso:        {video.Info.DownloadLinks.OriginalSizeInBytes} B");
+    Console.WriteLine($"  ID          {video.Id}");
+    Console.WriteLine($"  Author      {video.Author.Name} (@{video.Author.UniqueId})");
+    Console.WriteLine($"  Duration    {video.Duration.Seconds}s");
+    Console.WriteLine($"  Views       {video.Stats.Views:N0}");
+    Console.WriteLine($"  Likes       {video.Stats.Likes:N0}");
+    Console.WriteLine($"  Size        {video.Info.DownloadLinks.OriginalSizeInBytes / (1_024 * 1_024):F2} MB");
+    Console.WriteLine(Separator);
 
-    Console.WriteLine("¿Desea descargar el video? (s/n)");
-    string downloadChoice = Console.ReadLine() ?? "";
-    if (string.IsNullOrEmpty(downloadChoice) || !downloadChoice.Trim().Equals("s", StringComparison.CurrentCultureIgnoreCase))
+    Console.Write("Download with watermark? [Y/n]: ");
+    var watermarkChoice = Console.ReadLine()?.Trim();
+    var isWatermarked = string.IsNullOrEmpty(watermarkChoice) ||
+                        watermarkChoice.Equals("y", StringComparison.OrdinalIgnoreCase);
+
+    Console.Write("Download? [Y/n]: ");
+    var downloadChoice = Console.ReadLine()?.Trim();
+    if (!string.IsNullOrEmpty(downloadChoice) && !downloadChoice.Equals("y", StringComparison.OrdinalIgnoreCase))
     {
-        Console.WriteLine("Descarga cancelada.");
+        Console.WriteLine("Download cancelled.");
         return;
     }
 
-    Console.WriteLine("Descargando video...");
-    var isWatermarked = true;
+    var suffix = isWatermarked ? "watermarked" : "original";
+    var fileName = $"{video.Id}_{video.Author.UniqueId}_{suffix}.mp4";
 
-    var fileName = $"{video.Id}_{video.Author.Name}_{(isWatermarked is true ? "watermarked" : "original")}.mp4";
-    IProgress<double> progress = new Progress<double>(p => Console.Write($"\rProgreso: {p:P0}   "));
-    await client.DownloadAsync(video, fileName, progress);
-    Console.WriteLine($"\nGuardado: {fileName}");
+    Console.WriteLine($"Saving to: {fileName}");
+
+    IProgress<double> progress = new Progress<double>(p =>
+        Console.Write($"\r  Downloading... {p:P0}   ")
+    );
+
+    if (isWatermarked)
+        await client.DownloadWatermarkedAsync(video, fileName, progress);
+    else
+        await client.DownloadAsync(video, fileName, progress);
+
+    Console.WriteLine($"\n  Saved: {fileName}");
+    Console.WriteLine(Separator);
 }
 catch (TiktokWafException ex)
 {
-    Console.WriteLine($"WAF detectado: {ex.Message}");
+    Console.WriteLine($"\n[WAF] Bot detection triggered: {ex.Message}");
 }
 catch (VideoNotFoundException ex)
 {
-    Console.WriteLine($"Video no encontrado: {ex.Message}");
+    Console.WriteLine($"\n[404] Video not found: {ex.Message}");
 }
 catch (TiktokException ex)
 {
-    Console.WriteLine($"Error de TikTok: {ex.Message}");
+    Console.WriteLine($"\n[Error] {ex.Message}");
 }

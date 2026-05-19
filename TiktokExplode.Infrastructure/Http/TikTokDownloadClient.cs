@@ -4,14 +4,26 @@ using TiktokExplode.Infrastructure.Fetchers;
 
 namespace TiktokExplode.Infrastructure.Http;
 
+/// <summary>
+/// Manages a reusable <see cref="HttpClient"/> configured to download video files from TikTok's CDN.
+/// Maintains a <see cref="CookieContainer"/> that is populated with browser session cookies
+/// before each download to satisfy TikTok's authentication requirements.
+/// </summary>
 public sealed class TikTokDownloadClient : IDisposable
 {
+    /// <summary>Shared cookie container for all requests made by this client.</summary>
     private readonly CookieContainer _cookies = new();
 
+    /// <summary>Socket-level HTTP handler with connection pooling and automatic decompression.</summary>
     private readonly SocketsHttpHandler _handler;
 
+    /// <summary>The configured HTTP client used for all CDN download requests.</summary>
     private readonly HttpClient _httpClient;
 
+    /// <summary>
+    /// Initializes a new <see cref="TikTokDownloadClient"/>, configuring the socket handler
+    /// with connection pooling, automatic decompression, and browser-like default headers.
+    /// </summary>
     public TikTokDownloadClient()
     {
         _handler = new SocketsHttpHandler
@@ -39,6 +51,11 @@ public sealed class TikTokDownloadClient : IDisposable
         ConfigureDefaultHeaders();
     }
 
+    /// <summary>
+    /// Sets browser-like default request headers on the HTTP client to avoid CDN rejection.
+    /// Uses <see cref="System.Net.Http.Headers.HttpRequestHeaders.TryAddWithoutValidation"/> to allow
+    /// non-standard header casing and values.
+    /// </summary>
     private void ConfigureDefaultHeaders()
     {
         var headers = _httpClient.DefaultRequestHeaders;
@@ -95,6 +112,21 @@ public sealed class TikTokDownloadClient : IDisposable
     }
 
     
+    /// <summary>
+    /// Initiates a streaming GET request to the CDN URL and returns a <see cref="StreamInfo"/>
+    /// wrapping the open response stream and the exact byte length from the
+    /// <c>Content-Length</c> response header.
+    /// The caller is responsible for disposing the returned <see cref="StreamInfo"/>.
+    /// </summary>
+    /// <param name="url">The CDN download URL for the video.</param>
+    /// <param name="cancellationToken">Token to cancel the operation.</param>
+    /// <returns>
+    /// A <see cref="StreamInfo"/> where <see cref="StreamInfo.ContentLength"/> is the value of
+    /// the CDN <c>Content-Length</c> header, or <c>-1</c> if not present.
+    /// </returns>
+    /// <exception cref="System.Net.Http.HttpRequestException">
+    /// Thrown if the CDN returns a non-success status code.
+    /// </exception>
     public async Task<StreamInfo> DownloadVideoAsync(
         string url,
         CancellationToken cancellationToken = default)
@@ -142,6 +174,7 @@ public sealed class TikTokDownloadClient : IDisposable
         }
     }
 
+    /// <summary>Disposes the HTTP client and socket handler.</summary>
     public void Dispose()
     {
         _httpClient.Dispose();

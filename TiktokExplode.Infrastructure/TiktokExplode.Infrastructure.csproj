@@ -3,11 +3,30 @@
   <PropertyGroup>
     <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
-	<LangVersion>latest</LangVersion>
+    <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <RootNamespace>TiktokExplode.Infrastructure</RootNamespace>
     <AssemblyName>TiktokExplode.Infrastructure</AssemblyName>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageId>TiktokExplode.Infrastructure</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>Ts-Pytham</Authors>
+    <Owners>Ts-Pytham</Owners>
+    <Description>Infrastructure layer for TiktokExplode: HTTP and Playwright-based page fetchers, TikTok video parser, CDN download client, and WAF-retry logic.</Description>
+    <PackageTags>tiktok;downloader;scraper;playwright;dotnet</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/Ts-Pytham/TiktokExplode</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/Ts-Pytham/TiktokExplode</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\README.md" Pack="true" PackagePath="\"/>
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\TiktokExplode\TiktokExplode.csproj" />

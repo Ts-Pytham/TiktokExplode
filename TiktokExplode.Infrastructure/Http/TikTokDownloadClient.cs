@@ -53,8 +53,7 @@ public sealed class TikTokDownloadClient : IDisposable
 
     /// <summary>
     /// Sets browser-like default request headers on the HTTP client to avoid CDN rejection.
-    /// Uses <see cref="System.Net.Http.Headers.HttpRequestHeaders.TryAddWithoutValidation"/> to allow
-    /// non-standard header casing and values.
+    /// Uses <c>TryAddWithoutValidation</c> to allow non-standard header casing and values.
     /// </summary>
     private void ConfigureDefaultHeaders()
     {

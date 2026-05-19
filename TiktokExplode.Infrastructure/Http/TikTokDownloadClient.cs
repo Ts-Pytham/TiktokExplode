@@ -1,9 +1,9 @@
 using System.Net;
-using TiktokExplode.Domain.Exceptions;
+using TiktokExplode.Infrastructure.Fetchers;
 
 namespace TiktokExplode.Infrastructure.Http;
 
-public sealed class TikTokSession : IDisposable
+public sealed class TikTokDownloadClient : IDisposable
 {
     private readonly CookieContainer _cookies = new();
 
@@ -11,7 +11,7 @@ public sealed class TikTokSession : IDisposable
 
     private readonly HttpClient _httpClient;
 
-    public TikTokSession()
+    public TikTokDownloadClient()
     {
         _handler = new SocketsHttpHandler
         {
@@ -93,58 +93,7 @@ public sealed class TikTokSession : IDisposable
             "\"Windows\"");
     }
 
-    public async Task WarmupAsync(CancellationToken cancellationToken = default)
-    {
-        using var request = new HttpRequestMessage(
-            HttpMethod.Get,
-            "https://www.tiktok.com/")
-        {
-            Version = HttpVersion.Version20,
-            VersionPolicy = HttpVersionPolicy.RequestVersionOrLower
-        };
-
-        using var response = await _httpClient.SendAsync(
-            request,
-            HttpCompletionOption.ResponseHeadersRead,
-            cancellationToken);
-
-        _ = await response.Content.ReadAsStringAsync(cancellationToken);
-
-        await Task.Delay(
-            Random.Shared.Next(800, 2000),
-            cancellationToken);
-    }
-
-    public async Task<string> GetVideoPageAsync(
-        string url,
-        CancellationToken cancellationToken = default)
-    {
-        using var request = new HttpRequestMessage(
-            HttpMethod.Get,
-            url)
-        {
-            Version = HttpVersion.Version20,
-            VersionPolicy = HttpVersionPolicy.RequestVersionOrLower
-        };
-
-        request.Headers.Referrer = new Uri("https://www.tiktok.com/");
-
-        using var response = await _httpClient.SendAsync(
-            request,
-            HttpCompletionOption.ResponseHeadersRead,
-            cancellationToken);
-
-        var content = await response.Content.ReadAsStringAsync(cancellationToken);
-
-        if (IsWafChallenge(content))
-        {
-            throw new TiktokWafException(
-                "TikTok WAF challenge detected.");
-        }
-
-        return content;
-    }
-
+    
     public async Task<Stream> DownloadVideoAsync(
         string url,
         CancellationToken cancellationToken = default)
@@ -175,21 +124,14 @@ public sealed class TikTokSession : IDisposable
     /// <summary>
     /// Injects cookies with their correct domain into the session cookie container.
     /// </summary>
-    public void InjectCookies(IEnumerable<(string Name, string Value, string Domain, string Path)> cookies)
+    public void InjectCookies(IReadOnlyList<CookieData> cookies)
     {
-        foreach (var (name, value, domain, path) in cookies)
+        foreach (var cookie in cookies)
         {
-            var cleanDomain = domain.TrimStart('.');
+            var cleanDomain = cookie.Domain.TrimStart('.');
             var uri = new Uri($"https://{cleanDomain}/");
-            _cookies.Add(uri, new Cookie(name, value, path, domain));
+            _cookies.Add(uri, new Cookie(cookie.Name, cookie.Value, cookie.Path, cookie.Domain));
         }
-    }
-
-    private static bool IsWafChallenge(string content)
-    {
-        return content.Contains(
-            "_wafchallengeid",
-            StringComparison.OrdinalIgnoreCase);
     }
 
     public void Dispose()

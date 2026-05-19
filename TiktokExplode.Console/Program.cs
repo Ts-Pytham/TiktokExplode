@@ -20,11 +20,24 @@ try
     Console.WriteLine($"Vistas:      {video.Stats.Views}");
     Console.WriteLine($"Likes:       {video.Stats.Likes}");
 
+    Console.WriteLine("¿Desea descargar el video? (s/n)");
+    string downloadChoice = Console.ReadLine() ?? "";
+    if (string.IsNullOrEmpty(downloadChoice) || !downloadChoice.Trim().Equals("s", StringComparison.CurrentCultureIgnoreCase))
+    {
+        Console.WriteLine("Descarga cancelada.");
+        return;
+    }
+
     Console.WriteLine("Descargando video...");
     await using var stream = await client.DownloadWatermarkedAsync(video);
     var fileName = $"{video.Id}.mp4";
     await using var file = File.Create(fileName);
-    await stream.CopyToAsync(file);
+    IProgress<long> progress = new Progress<long>(bytesRead =>
+    {
+        var total = video.Info.DownloadLinks.SizeInBytes;
+        Console.WriteLine($"Progreso: {bytesRead / 1024.0 / 1024.0:F2} MB / {total / 1024.0 / 1024.0:F2} MB");
+    });
+    await CopyToAsync(stream, file, progress);
     Console.WriteLine($"Guardado: {fileName}");
 }
 catch (TiktokWafException ex)
@@ -38,4 +51,20 @@ catch (VideoNotFoundException ex)
 catch (TiktokException ex)
 {
     Console.WriteLine($"Error de TikTok: {ex.Message}");
+}
+
+
+ static async Task CopyToAsync(Stream source, Stream destination, long totalBytes,
+    IProgress<long> progress, CancellationToken cancellationToken = default)
+{
+    var bytesRead = 0L;
+    var buffer = new byte[81920];
+    int read;
+
+    while ((read = await source.ReadAsync(buffer, cancellationToken)) > 0)
+    {
+        await destination.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
+        bytesRead += read;
+        progress.Report(bytesRead);
+    }
 }

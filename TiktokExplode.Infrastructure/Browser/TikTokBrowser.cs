@@ -1,5 +1,7 @@
 using Microsoft.Playwright;
 using TiktokExplode.Domain.Exceptions;
+using TiktokExplode.Infrastructure.Fetchers;
+using TiktokExplode.Infrastructure.Options;
 
 namespace TiktokExplode.Infrastructure.Browser;
 
@@ -8,22 +10,24 @@ internal sealed class TikTokBrowser : IAsyncDisposable
     private readonly IPlaywright _playwright;
     private readonly IBrowser _browser;
     private readonly IBrowserContext _context;
+    private readonly PlaywrightFetcherOptions _options;
 
-    private TikTokBrowser(IPlaywright playwright, IBrowser browser, IBrowserContext context)
+    private TikTokBrowser(IPlaywright playwright, IBrowser browser, IBrowserContext context, PlaywrightFetcherOptions options)
     {
         _playwright = playwright;
         _browser = browser;
         _context = context;
+        _options = options;
     }
 
-    public static async Task<TikTokBrowser> CreateAsync()
+    public static async Task<TikTokBrowser> CreateAsync(PlaywrightFetcherOptions options)
     {
         var playwright = await Playwright.CreateAsync();
 
         var browser = await playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions
         {
-            Channel = "msedge",
-            Headless = true
+            Channel = options.BrowserChannel,
+            Headless = options.Headless
         });
 
         var context = await browser.NewContextAsync(new BrowserNewContextOptions
@@ -36,7 +40,7 @@ internal sealed class TikTokBrowser : IAsyncDisposable
             }
         });
 
-        return new TikTokBrowser(playwright, browser, context);
+        return new TikTokBrowser(playwright, browser, context, options);
     }
 
     private static readonly string[] _blockedResourceTypes = ["image", "media", "font", "stylesheet"];
@@ -60,7 +64,7 @@ internal sealed class TikTokBrowser : IAsyncDisposable
             var response = await page.GotoAsync(url, new PageGotoOptions
             {
                 WaitUntil = WaitUntilState.DOMContentLoaded,
-                Timeout = 30_000
+                Timeout = _options.PageTimeoutMs
             });
 
             if (response is null || !response.Ok)
@@ -79,13 +83,17 @@ internal sealed class TikTokBrowser : IAsyncDisposable
         }
     }
 
-    /// <summary>
-    /// Returns all cookies from the browser context with their domain and path.
-    /// </summary>
-    public async Task<IEnumerable<(string Name, string Value, string Domain, string Path)>> GetCookiesAsync()
+    public async Task<IReadOnlyList<CookieData>> GetCookiesAsync()
     {
         var cookies = await _context.CookiesAsync();
-        return cookies.Select(c => (c.Name, c.Value, c.Domain, c.Path ?? "/"));
+        return [.. cookies
+            .Select(c => new CookieData
+            {
+                Name   = c.Name,
+                Value  = c.Value,
+                Domain = c.Domain,
+                Path   = c.Path ?? "/"
+            })];
     }
 
     public async ValueTask DisposeAsync()

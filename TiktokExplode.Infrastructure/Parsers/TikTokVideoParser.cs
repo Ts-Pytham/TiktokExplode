@@ -167,7 +167,7 @@ internal sealed class TikTokVideoParser
 
     private static Bitrate[] ParseBitrates(JsonNode node)
     {
-        return node.AsArray()
+        return [.. node.AsArray()
             .OfType<JsonNode>()
             .Select(bitrateNode => new Bitrate
             {
@@ -176,8 +176,7 @@ internal sealed class TikTokVideoParser
                 Format = ParseBitrateFormat(bitrateNode),
                 RawFormat = bitrateNode.GetString("Format"),
                 CodecType = bitrateNode.GetString("CodecType")
-            })
-            .ToArray();
+            })];
     }
 
     private static BitrateFormat ParseBitrateFormat(JsonNode bitrateNode)
@@ -185,7 +184,7 @@ internal sealed class TikTokVideoParser
         var raw = bitrateNode.GetString("Format");
         return Enum.TryParse<BitrateFormat>(raw, ignoreCase: true, out var format)
             ? format
-            : throw new TiktokParsingException($"Unknown bitrate format: {raw}");
+            : BitrateFormat.Unknown;
     }
 
     private static VideoLanguage ParseVideoLanguage(JsonNode node)

@@ -3,6 +3,7 @@
   <PropertyGroup>
     <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
+	<LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <RootNamespace>TiktokExplode.Infrastructure</RootNamespace>
     <AssemblyName>TiktokExplode.Infrastructure</AssemblyName>

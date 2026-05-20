@@ -5,5 +5,4 @@
   <Project Path="TiktokExplode.All/TiktokExplode.All.csproj" />
   <Project Path="TiktokExplode.Tests/TiktokExplode.Tests.csproj" />
   <Project Path="TiktokExplode.Console/TiktokExplode.Console.csproj" />
-  <Project Path="TiktokExplode.Bot/TiktokExplode.Bot.csproj" />
 </Solution>

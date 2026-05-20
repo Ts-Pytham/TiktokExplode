@@ -10,18 +10,18 @@ public sealed class PlaywrightFetcherOptions
     /// installed browser, or <see langword="null"/> to use Playwright's bundled Chromium.
     /// Defaults to <see langword="null"/>.
     /// </summary>
-    public string? BrowserChannel { get; init; }
+    public string? BrowserChannel { get; set; }
 
     /// <summary>
     /// Whether to run the browser in headless mode (no visible window).
     /// Set to <see langword="false"/> to show the browser during debugging.
     /// Defaults to <see langword="true"/>.
     /// </summary>
-    public bool Headless { get; init; } = true;
+    public bool Headless { get; set; } = true;
 
     /// <summary>
     /// Maximum time in milliseconds to wait for a page navigation to complete.
     /// Defaults to <c>30 000</c> ms (30 seconds).
     /// </summary>
-    public float PageTimeoutMs { get; init; } = 30_000;
+    public float PageTimeoutMs { get; set; } = 30_000;
 }

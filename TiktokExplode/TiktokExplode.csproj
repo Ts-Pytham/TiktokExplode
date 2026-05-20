@@ -11,7 +11,7 @@
 
   <PropertyGroup>
     <PackageId>TiktokExplode</PackageId>
-    <Version>1.1.0</Version>
+    <Version>1.1.1</Version>
     <Authors>Ts-Pytham</Authors>
     <Owners>Ts-Pytham</Owners>
     <Description>Domain layer for TiktokExplode: strongly-typed models, interfaces, and utilities for working with TikTok video metadata. Zero external dependencies.</Description>

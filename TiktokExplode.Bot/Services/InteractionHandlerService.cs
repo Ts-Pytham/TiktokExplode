@@ -1,21 +1,25 @@
-﻿using System.Reflection;
-using Discord.Interactions;
+﻿using Discord.Interactions;
 using Discord.WebSocket;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
+using System.Reflection;
+using TiktokExplode.Bot.Configuration;
+using TiktokExplode.Bot.Modules;
 
 namespace TiktokExplode.Bot.Services;
 
 public sealed class InteractionHandlerService(
     DiscordSocketClient client,
     InteractionService interactionService,
-    IServiceProvider serviceProvider) : IHostedService
+    IServiceProvider serviceProvider,
+    IOptions<BotSettings> settings) : IHostedService
 {
     public async Task StartAsync(CancellationToken cancellationToken)
     {
         client.Ready += OnReadyAsync;
         client.InteractionCreated += OnInteractionCreatedAsync;
 
-        await interactionService.AddModulesAsync(Assembly.GetEntryAssembly(), serviceProvider);
+        await interactionService.AddModulesAsync(typeof(VideoModule).Assembly, serviceProvider);
     }
 
     public Task StopAsync(CancellationToken cancellationToken)
@@ -27,7 +31,12 @@ public sealed class InteractionHandlerService(
 
     private async Task OnReadyAsync()
     {
-        await interactionService.RegisterCommandsGloballyAsync();
+        if (settings.Value.GuildId != 0)
+            // Registro instantáneo — ideal para desarrollo y pruebas.
+            await interactionService.RegisterCommandsToGuildAsync(settings.Value.GuildId);
+        else
+            // Registro global — puede tardar hasta 1 hora en propagarse.
+            await interactionService.RegisterCommandsGloballyAsync();
     }
 
     private async Task OnInteractionCreatedAsync(SocketInteraction interaction)

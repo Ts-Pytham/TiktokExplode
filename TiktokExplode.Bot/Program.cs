@@ -1,8 +1,10 @@
 ﻿using Discord;
+using Discord.Audio;
 using Discord.Interactions;
 using Discord.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using System.Collections.Concurrent;
 using TiktokExplode.Bot.CDN;
 using TiktokExplode.Bot.Configuration;
 using TiktokExplode.Bot.Services;
@@ -27,7 +29,7 @@ public static class Program
 
         services.AddSingleton(new DiscordSocketClient(new DiscordSocketConfig
         {
-            GatewayIntents = GatewayIntents.Guilds
+            GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildVoiceStates
         }));
 
         services.AddSingleton(provider =>
@@ -38,6 +40,8 @@ public static class Program
 
         services.AddMemoryCache();
         services.AddHttpClient();
+
+        services.AddSingleton<ConcurrentDictionary<ulong, IAudioClient>>(_ => new ConcurrentDictionary<ulong, IAudioClient>());
 
         // CDN providers — se prueban en orden: R2 → 0x0.st → Litterbox
         services.Configure<CloudflareR2Options>(context.Configuration.GetSection(CloudflareR2Options.Section));

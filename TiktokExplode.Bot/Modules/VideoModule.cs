@@ -1,13 +1,21 @@
 using Discord;
+using Discord.Audio;
 using Discord.Interactions;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging;
+using System.Collections.Concurrent;
+using TiktokExplode.Bot.Handlers;
 using TiktokExplode.Domain.Abstractions;
 using TiktokExplode.Domain.Exceptions;
 
 namespace TiktokExplode.Bot.Modules;
 
 [Group("tiktok", "Comandos relacionados con TikTok")]
-public sealed class VideoModule(IMemoryCache cache, IVideoClient tiktok) : InteractionModuleBase<SocketInteractionContext>
+public sealed class VideoModule(
+    IVideoClient tiktok,
+    IMemoryCache cache,
+    ConcurrentDictionary<ulong, IAudioClient> audioClients,
+    ILogger<FFmpegAudioStream> logger) : InteractionModuleBase<SocketInteractionContext>
 {
     [SlashCommand("video", "Obten metadatos de un video de TikTok")]
     public async Task VideoAsync([Summary("url", "URL del video")] string url)
@@ -51,6 +59,41 @@ public sealed class VideoModule(IMemoryCache cache, IVideoClient tiktok) : Inter
         catch (Exception ex)
         {
             await FollowupAsync($"Error al obtener el video: {ex.Message}", ephemeral: true);
+        }
+    }
+
+    [SlashCommand("audio", "Reproduce el audio de un video de TikTok en el canal de voz")]
+    public async Task AudioAsync([Summary("url", "URL del video")] string url)
+    {
+        await DeferAsync();
+        try
+        {
+            var video = await tiktok.GetVideoAsync(url);
+
+            if (Context.User is not IVoiceState voiceState || voiceState.VoiceChannel == null)
+            {
+                await FollowupAsync("Debes estar en un canal de voz para usar este comando.", ephemeral: true);
+                return;
+            }
+
+            var audioClient = await voiceState.VoiceChannel.ConnectAsync();
+            audioClients[Context.Guild.Id] = audioClient;
+
+            var ffmpeg = new FFmpegAudioStream(video.Info.DownloadLinks.OriginalUrl, logger);
+            await ffmpeg.StartAsync();
+
+            await using var discordStream = audioClient.CreatePCMStream(AudioApplication.Mixed);
+            await ffmpeg.PipeToAsync(discordStream);
+
+            await FollowupAsync($"Reproduciendo el audio de {video.Description} en {voiceState.VoiceChannel.Name}.");
+        }
+        catch (TiktokParsingException ex) when (ex.Message.Contains("429"))
+        {
+            await FollowupAsync("TikTok está limitando las solicitudes (429). Espera unos segundos e intenta de nuevo.", ephemeral: true);
+        }
+        catch (Exception ex)
+        {
+            await FollowupAsync($"Error al reproducir el audio: {ex.Message}", ephemeral: true);
         }
     }
 }

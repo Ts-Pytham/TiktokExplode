@@ -28,7 +28,7 @@ public sealed class DownloadModule(
         {
             await using var streamInfo = await tiktok.DownloadAsync(video!);
             await SendVideoAsync(ms =>
-                Context.Channel.SendFileAsync(ms, $"{video!.Id}.mp4"), streamInfo, $"{video!.Id}.mp4");
+                Context.Channel.SendFileAsync(ms, $"{video!.Id}.mp4"), streamInfo, video!.Id);
         }
         catch (Exception ex)
         {
@@ -52,7 +52,7 @@ public sealed class DownloadModule(
         {
             await using var streamInfo = await tiktok.DownloadWatermarkedAsync(video!);
             await SendVideoAsync(ms =>
-                Context.Channel.SendFileAsync(ms, $"{video!.Id}_watermark.mp4"), streamInfo, $"{video!.Id}_watermark.mp4");
+                Context.Channel.SendFileAsync(ms, $"{video!.Id}_watermark.mp4"), streamInfo, $"{video!.Id}_watermark");
         }
         catch (Exception ex)
         {
@@ -64,8 +64,8 @@ public sealed class DownloadModule(
     private const int DiscordMaxBytes = 8 * 1024 * 1024; // 8 MB — límite oficial para bots
 
     private async Task SendVideoAsync(
-        Func<MemoryStream, Task> discordUpload, 
-        Domain.ValueObjects.StreamInfo streamInfo, 
+        Func<MemoryStream, Task> discordUpload,
+        Domain.ValueObjects.StreamInfo streamInfo,
         string filename)
     {
         byte[] data;

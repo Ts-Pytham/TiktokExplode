@@ -3,6 +3,7 @@ using Amazon.S3;
 using Amazon.S3.Model;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using TiktokExplode.Bot.Configuration;
 
 namespace TiktokExplode.Bot.CDN;
 
@@ -33,30 +34,43 @@ public sealed class CloudflareR2CdnProvider : ICdnProvider
 
     public async Task<string> UploadAsync(byte[] data, string filename, CancellationToken ct = default)
     {
-        var publicUrl = $"{_options.PublicBaseUrl.TrimEnd('/')}/{filename}";
+        if (await GetUrlAsync(filename, ct) is string existingUrl && !string.IsNullOrWhiteSpace(existingUrl))
+        {
+            return existingUrl;
+        }
 
-        try
-        {
-            await _s3.GetObjectMetadataAsync(_options.BucketName, filename, ct);
-            return publicUrl;
-        }
-        catch (AmazonS3Exception ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
-        {
-            _logger.LogInformation("Archivo {Filename} no existe en R2, procediendo a subirlo", filename);
-        }
+        var key = $"{filename}.mp4";
+        _logger.LogInformation("Subiendo archivo {Filename} a R2", key);
 
         using var stream = new MemoryStream(data, writable: false);
 
         var request = new PutObjectRequest
         {
             BucketName = _options.BucketName,
-            Key = filename,
+            Key = key,
             InputStream = stream,
             ContentType = "video/mp4",
             DisablePayloadSigning = true
         };
 
         await _s3.PutObjectAsync(request, ct);
+
+        return $"{_options.PublicBaseUrl.TrimEnd('/')}/{key}";
+    }
+
+    public async Task<string> GetUrlAsync(string filename, CancellationToken ct = default)
+    {
+        var key = $"{filename}.mp4";
+        var publicUrl = $"{_options.PublicBaseUrl.TrimEnd('/')}/{key}";
+        try
+        {
+            await _s3.GetObjectMetadataAsync(_options.BucketName, key, ct);
+        }
+        catch (AmazonS3Exception ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            _logger.LogInformation("Archivo {Filename} no encontrado en R2", key);
+            return string.Empty;
+        }
 
         return publicUrl;
     }

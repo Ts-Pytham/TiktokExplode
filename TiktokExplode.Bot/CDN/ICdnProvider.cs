@@ -4,4 +4,5 @@ public interface ICdnProvider
 {
     string Name { get; }
     Task<string> UploadAsync(byte[] data, string filename, CancellationToken ct = default);
+    Task<string> GetUrlAsync(string filename, CancellationToken ct = default);
 }

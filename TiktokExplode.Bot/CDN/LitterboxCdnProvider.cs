@@ -18,13 +18,17 @@ public sealed class LitterboxCdnProvider(IHttpClientFactory httpClientFactory) :
         form.Add(new StringContent("72h"), "time");
         var fc = new ByteArrayContent(data);
         fc.Headers.ContentType = new MediaTypeHeaderValue("video/mp4");
-        form.Add(fc, "fileToUpload", filename);
+        form.Add(fc, "fileToUpload", $"{filename}.mp4");
 
         var req = new HttpRequestMessage(HttpMethod.Post,
-            "https://litterbox.catbox.moe/resources/internals/api.php") { Content = form };
+            "https://litterbox.catbox.moe/resources/internals/api.php")
+        { Content = form };
         using var resp = await http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
         resp.EnsureSuccessStatusCode();
 
         return (await resp.Content.ReadAsStringAsync(ct)).Trim();
     }
+
+    public Task<string> GetUrlAsync(string filename, CancellationToken ct = default)
+        => Task.FromResult($"https://litterbox.catbox.moe/{filename}.mp4");
 }

@@ -28,4 +28,27 @@ public sealed class CompositeCdnProvider(
 
         throw new InvalidOperationException("Todos los proveedores CDN fallaron.");
     }
+
+    public async Task<string> GetUrlAsync(string filename, CancellationToken ct = default)
+    {
+        foreach (var provider in providers)
+        {
+            try
+            {
+                var url = await provider.GetUrlAsync(filename, ct);
+
+                if (string.IsNullOrWhiteSpace(url))
+                    continue;
+
+                logger.LogInformation("GetUrl exitoso via {Provider}: {Url}", provider.Name, url);
+                return url;
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Provider {Provider} falló en GetUrl ({Msg}), probando el siguiente", provider.Name, ex.Message);
+            }
+        }
+
+        return string.Empty;
+    }
 }

@@ -14,7 +14,7 @@ public sealed class ZeroXZeroCdnProvider(IHttpClientFactory httpClientFactory) :
         using var form = new MultipartFormDataContent();
         var fc = new ByteArrayContent(data);
         fc.Headers.ContentType = new MediaTypeHeaderValue("video/mp4");
-        form.Add(fc, "file", filename);
+        form.Add(fc, "file", $"{filename}.mp4");
 
         var req = new HttpRequestMessage(HttpMethod.Post, "https://0x0.st") { Content = form };
         using var resp = await http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
@@ -22,4 +22,7 @@ public sealed class ZeroXZeroCdnProvider(IHttpClientFactory httpClientFactory) :
 
         return (await resp.Content.ReadAsStringAsync(ct)).Trim();
     }
+
+    public Task<string> GetUrlAsync(string filename, CancellationToken ct = default)
+        => Task.FromResult($"https://0x0.st/{filename}.mp4");
 }

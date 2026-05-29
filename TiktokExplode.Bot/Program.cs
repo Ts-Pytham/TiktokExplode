@@ -29,7 +29,13 @@ public static class Program
 
         services.AddSingleton(new DiscordSocketClient(new DiscordSocketConfig
         {
-            GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildVoiceStates
+            GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildVoiceStates,
+            EnableVoiceDaveEncryption = true,
+        }));
+
+        Discord.LibDave.Dave.SetLogSink(new Discord.LibDave.DaveLogSinkDelegate((severity, file, line, message) =>
+        {
+            Console.WriteLine($"[{severity} | LIBDAVE @ {file}#{line}]: {message}");
         }));
 
         services.AddSingleton(provider =>
@@ -41,13 +47,25 @@ public static class Program
         services.AddMemoryCache();
         services.AddHttpClient();
 
-        services.AddSingleton<ConcurrentDictionary<ulong, IAudioClient>>(_ => new ConcurrentDictionary<ulong, IAudioClient>());
+        services.AddSingleton(_ => new ConcurrentDictionary<ulong, IAudioClient>());
+        services.AddSingleton(_ => new ConcurrentDictionary<ulong, IUserMessage>());
+        services.AddSingleton(_ => new ConcurrentDictionary<ulong, Task>());
 
-        // CDN providers — se prueban en orden: R2 → 0x0.st → Litterbox
         services.Configure<CloudflareR2Options>(context.Configuration.GetSection(CloudflareR2Options.Section));
-        services.AddSingleton<ICdnProvider, CloudflareR2CdnProvider>();
-        services.AddSingleton<ICdnProvider, ZeroXZeroCdnProvider>();
-        services.AddSingleton<ICdnProvider, LitterboxCdnProvider>();
+
+        services.AddSingleton<CloudflareR2CdnProvider>();
+        services.AddSingleton<ZeroXZeroCdnProvider>();
+        services.AddSingleton<LitterboxCdnProvider>();
+
+        services.AddSingleton<ICdnProvider>(x =>
+            x.GetRequiredService<CloudflareR2CdnProvider>());
+
+        services.AddSingleton<ICdnProvider>(x =>
+            x.GetRequiredService<ZeroXZeroCdnProvider>());
+
+        services.AddSingleton<ICdnProvider>(x =>
+            x.GetRequiredService<LitterboxCdnProvider>());
+
         services.AddSingleton<CompositeCdnProvider>();
 
         services.AddHostedService<BotService>();

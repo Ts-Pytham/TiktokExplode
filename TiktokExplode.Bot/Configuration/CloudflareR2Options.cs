@@ -1,4 +1,4 @@
-namespace TiktokExplode.Bot.CDN;
+namespace TiktokExplode.Bot.Configuration;
 
 public sealed class CloudflareR2Options
 {

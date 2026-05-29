@@ -75,17 +75,18 @@ public sealed class FFmpegAudioStream(
         Process process,
         CancellationToken cancellationToken)
     {
-        while (!process.StandardError.EndOfStream &&
-               !cancellationToken.IsCancellationRequested)
+        _ = Task.Run(async () =>
         {
-            var line = await process.StandardError.ReadLineAsync(cancellationToken);
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                var line = await process.StandardError.ReadLineAsync();
 
-            if (string.IsNullOrWhiteSpace(line))
-                continue;
+                if (line is null)
+                    break;
 
-
-            _logger.LogInformation("[FFmpeg] {Line}", line);
-        }
+                _logger.LogInformation("[FFmpeg] {Line}", line);
+            }
+        }, cancellationToken);
     }
 
     public async ValueTask DisposeAsync()

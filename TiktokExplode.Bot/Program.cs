@@ -1,5 +1,4 @@
 ﻿using Discord;
-using Discord.Audio;
 using Discord.Interactions;
 using Discord.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
@@ -47,9 +46,9 @@ public static class Program
         services.AddMemoryCache();
         services.AddHttpClient();
 
-        services.AddSingleton(_ => new ConcurrentDictionary<ulong, IAudioClient>());
         services.AddSingleton(_ => new ConcurrentDictionary<ulong, IUserMessage>());
-        services.AddSingleton(_ => new ConcurrentDictionary<ulong, Task>());
+
+        services.AddSingleton<MusicPlayerManager>();
 
         services.Configure<CloudflareR2Options>(context.Configuration.GetSection(CloudflareR2Options.Section));
 

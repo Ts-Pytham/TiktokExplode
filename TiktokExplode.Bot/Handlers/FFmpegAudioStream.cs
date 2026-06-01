@@ -4,15 +4,15 @@ using System.Diagnostics;
 namespace TiktokExplode.Bot.Handlers;
 
 public sealed class FFmpegAudioStream(
-    string url, 
-    ILogger<FFmpegAudioStream> logger) : IAsyncDisposable
+    string url,
+    ILogger logger) : IAsyncDisposable
 {
 
     private Process? _process;
     private Stream? _output;
     private Task? _stderrTask;
     private readonly ILogger _logger = logger;
-
+    private readonly SemaphoreSlim _semaphore = new(1, 1);
     private bool _started;
     private bool _disposed;
 
@@ -66,9 +66,25 @@ public sealed class FFmpegAudioStream(
         if (_output is null)
             throw new InvalidOperationException("FFmpeg output stream not available.");
 
-        await _output.CopyToAsync(destination, cancellationToken);
+        // Discord.Net necesita frames completos de 3840 bytes (20 ms de PCM s16le 48 kHz 2ch).
+        // ReadAsync puede devolver menos bytes; los acumulamos hasta completar el frame.
+        var buffer = new byte[3840];
+        int offset = 0;
 
-        await destination.FlushAsync(cancellationToken);
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            int bytesRead = await _output.ReadAsync(buffer.AsMemory(offset), cancellationToken);
+            if (bytesRead == 0) break;
+
+            offset += bytesRead;
+            if (offset < buffer.Length) continue; // esperar frame completo
+
+            await _semaphore.WaitAsync(cancellationToken);
+            _semaphore.Release();
+
+            await destination.WriteAsync(buffer, cancellationToken);
+            offset = 0;
+        }
     }
 
     private async Task ConsumeErrorsAsync(
@@ -87,6 +103,18 @@ public sealed class FFmpegAudioStream(
                 _logger.LogInformation("[FFmpeg] {Line}", line);
             }
         }, cancellationToken);
+    }
+
+    public void Pause()
+    {
+        if (_semaphore.CurrentCount == 1)
+            _semaphore.Wait(0);
+    }
+
+    public void Resume()
+    {
+        if (_semaphore.CurrentCount == 0)
+            _semaphore.Release();
     }
 
     public async ValueTask DisposeAsync()
@@ -126,6 +154,11 @@ public sealed class FFmpegAudioStream(
         }
 
         _process?.Dispose();
+
+        if (_semaphore.CurrentCount == 0)
+            _semaphore.Release();
+
+        _semaphore.Dispose();
     }
 
     private void ThrowIfDisposed()

@@ -1,4 +1,5 @@
-﻿using Discord.Interactions;
+﻿using Discord;
+using Discord.Interactions;
 using Discord.WebSocket;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
@@ -18,14 +19,16 @@ public sealed class InteractionHandlerService(
     {
         client.Ready += OnReadyAsync;
         client.InteractionCreated += OnInteractionCreatedAsync;
+        interactionService.InteractionExecuted += OnInteractionExecutedAsync;
 
-        await interactionService.AddModulesAsync(typeof(VideoModule).Assembly, serviceProvider);
+        await interactionService.AddModulesAsync(typeof(AudioModule).Assembly, serviceProvider);
     }
 
     public Task StopAsync(CancellationToken cancellationToken)
     {
         client.Ready -= OnReadyAsync;
         client.InteractionCreated -= OnInteractionCreatedAsync;
+        interactionService.InteractionExecuted -= OnInteractionExecutedAsync;
         return Task.CompletedTask;
     }
 
@@ -41,7 +44,33 @@ public sealed class InteractionHandlerService(
 
     private async Task OnInteractionCreatedAsync(SocketInteraction interaction)
     {
-        var context = new SocketInteractionContext(client, interaction);
-        await interactionService.ExecuteCommandAsync(context, serviceProvider);
+        try
+        {
+            var context = new SocketInteractionContext(client, interaction);
+            await interactionService.ExecuteCommandAsync(context, serviceProvider);
+        }
+        catch (Exception)
+        {
+            // Si la excepción ocurre antes de que el handler haga DeferAsync/RespondAsync,
+            // el interaction quedará sin acknowledgment — intentar responder con error.
+            if (!interaction.HasResponded)
+                await interaction.RespondAsync("Error interno al procesar la interacción.", ephemeral: true);
+        }
+    }
+
+    private async Task OnInteractionExecutedAsync(ICommandInfo? command, IInteractionContext context, IResult result)
+    {
+        if (result.IsSuccess) return;
+
+        var errorMsg = result.Error switch
+        {
+            InteractionCommandError.UnknownCommand => "Comando no encontrado.",
+            InteractionCommandError.BadArgs => "Argumentos inválidos.",
+            InteractionCommandError.Exception => $"Error: {result.ErrorReason}",
+            _ => result.ErrorReason
+        };
+
+        if (!context.Interaction.HasResponded)
+            await context.Interaction.RespondAsync(errorMsg, ephemeral: true);
     }
 }

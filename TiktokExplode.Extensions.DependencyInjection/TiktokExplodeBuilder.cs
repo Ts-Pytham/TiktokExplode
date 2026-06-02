@@ -14,15 +14,15 @@ namespace TiktokExplode.Extensions.DependencyInjection;
 /// </summary>
 public sealed class TiktokExplodeBuilder(IServiceCollection services)
 {
-    private readonly TikTokOptions _tiktokOptions = new();
+    private readonly TiktokOptions _tiktokOptions = new();
     private Action<IServiceCollection> _fetcherRegistration = RegisterPlaywright(new());
 
     /// <summary>
     /// Configures the WAF-retry behaviour of <c>TiktokClient</c>.
     /// </summary>
-    /// <param name="options">Delegate that mutates a <see cref="TikTokOptions"/> instance.</param>
+    /// <param name="options">Delegate that mutates a <see cref="TiktokOptions"/> instance.</param>
     /// <returns>The same builder for chaining.</returns>
-    public TiktokExplodeBuilder ConfigureTiktok(Action<TikTokOptions>? options = null)
+    public TiktokExplodeBuilder ConfigureTiktok(Action<TiktokOptions>? options = null)
     {
         options?.Invoke(_tiktokOptions);
         return this;
@@ -64,7 +64,7 @@ public sealed class TiktokExplodeBuilder(IServiceCollection services)
 
     /// <summary>
     /// Applies all pending registrations to the underlying <see cref="IServiceCollection"/>.
-    /// Registers <see cref="TikTokOptions"/>, the chosen <see cref="IPageFetcher"/>,
+    /// Registers <see cref="TiktokOptions"/>, the chosen <see cref="IPageFetcher"/>,
     /// and <see cref="IVideoClient"/> as singletons.
     /// </summary>
     /// <returns>The service collection for further chaining.</returns>

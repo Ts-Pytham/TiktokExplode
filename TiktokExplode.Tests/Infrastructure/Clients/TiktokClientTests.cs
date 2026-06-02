@@ -17,7 +17,7 @@ public class TiktokClientTests
     public async Task Should_ThrowArgumentException_When_UrlIsInvalid()
     {
         var fetcher = Substitute.For<IPageFetcher>();
-        await using var client = new TiktokClient(fetcher, new TikTokOptions());
+        await using var client = new TiktokClient(fetcher, new TiktokOptions());
 
         var act = async () => await client.GetVideoAsync("not-a-tiktok-url");
 
@@ -31,7 +31,7 @@ public class TiktokClientTests
     public async Task Should_RetryAndSucceed_When_FetcherThrowsWafOnFirstAttemptOnly()
     {
         var fetcher = Substitute.For<IPageFetcher>();
-        var options = new TikTokOptions { MaxWafRetries = 2, RetryBaseDelay = TimeSpan.Zero };
+        var options = new TiktokOptions { MaxWafRetries = 2, RetryBaseDelay = TimeSpan.Zero };
 
         fetcher.FetchPageAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
                .Returns(
@@ -51,7 +51,7 @@ public class TiktokClientTests
     public async Task Should_ThrowTiktokWafException_When_AllRetriesAreExhausted()
     {
         var fetcher = Substitute.For<IPageFetcher>();
-        var options = new TikTokOptions { MaxWafRetries = 2, RetryBaseDelay = TimeSpan.Zero };
+        var options = new TiktokOptions { MaxWafRetries = 2, RetryBaseDelay = TimeSpan.Zero };
 
         fetcher.FetchPageAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
                .Returns(Task.FromException<PageFetchResult>(new TiktokWafException()));
@@ -72,7 +72,7 @@ public class TiktokClientTests
         int expectedCalls)
     {
         var fetcher = Substitute.For<IPageFetcher>();
-        var options = new TikTokOptions { MaxWafRetries = maxWafRetries, RetryBaseDelay = TimeSpan.Zero };
+        var options = new TiktokOptions { MaxWafRetries = maxWafRetries, RetryBaseDelay = TimeSpan.Zero };
 
         fetcher.FetchPageAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
                .Returns(Task.FromException<PageFetchResult>(new TiktokWafException()));

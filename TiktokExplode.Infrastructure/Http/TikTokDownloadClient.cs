@@ -9,7 +9,7 @@ namespace TiktokExplode.Infrastructure.Http;
 /// Maintains a <see cref="CookieContainer"/> that is populated with browser session cookies
 /// before each download to satisfy TikTok's authentication requirements.
 /// </summary>
-public sealed class TikTokDownloadClient : IDisposable
+public sealed class TiktokDownloadClient : IDisposable
 {
     /// <summary>Shared cookie container for all requests made by this client.</summary>
     private readonly CookieContainer _cookies = new();
@@ -21,10 +21,10 @@ public sealed class TikTokDownloadClient : IDisposable
     private readonly HttpClient _httpClient;
 
     /// <summary>
-    /// Initializes a new <see cref="TikTokDownloadClient"/>, configuring the socket handler
+    /// Initializes a new <see cref="TiktokDownloadClient"/>, configuring the socket handler
     /// with connection pooling, automatic decompression, and browser-like default headers.
     /// </summary>
-    public TikTokDownloadClient()
+    public TiktokDownloadClient()
     {
         _handler = new SocketsHttpHandler
         {
@@ -110,7 +110,7 @@ public sealed class TikTokDownloadClient : IDisposable
             "\"Windows\"");
     }
 
-    
+
     /// <summary>
     /// Initiates a streaming GET request to the CDN URL and returns a <see cref="StreamInfo"/>
     /// wrapping the open response stream and the exact byte length from the
@@ -157,7 +157,7 @@ public sealed class TikTokDownloadClient : IDisposable
         {
             Stream          = stream,
             ContentLength   = contentLength
-        }; 
+        };
     }
 
     /// <summary>

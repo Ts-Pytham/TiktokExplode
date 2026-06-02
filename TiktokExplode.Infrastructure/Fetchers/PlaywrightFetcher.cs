@@ -14,7 +14,7 @@ public sealed class PlaywrightFetcher(PlaywrightFetcherOptions options) : IPageF
     /// The underlying browser wrapper. Lazily initialized on the first
     /// <see cref="FetchPageAsync"/> call via the double-check lock pattern.
     /// </summary>
-    private TikTokBrowser? _browser;
+    private TiktokBrowser? _browser;
 
     /// <summary>Semaphore that serializes the one-time browser initialization across concurrent callers.</summary>
     private readonly SemaphoreSlim _initLock = new(1, 1);
@@ -44,7 +44,7 @@ public sealed class PlaywrightFetcher(PlaywrightFetcherOptions options) : IPageF
             {
                 if (!_initialized)
                 {
-                    _browser = await TikTokBrowser.CreateAsync(options);
+                    _browser = await TiktokBrowser.CreateAsync(options);
                     _initialized = true;
                 }
             }

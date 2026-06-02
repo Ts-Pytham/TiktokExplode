@@ -11,7 +11,7 @@ namespace TiktokExplode.Infrastructure.Browser;
 /// Resource-heavy assets (images, media, fonts, stylesheets) are intercepted and aborted
 /// to speed up page load times.
 /// </summary>
-internal sealed class TikTokBrowser : IAsyncDisposable
+internal sealed class TiktokBrowser : IAsyncDisposable
 {
     /// <summary>The top-level Playwright instance. Must be disposed last.</summary>
     private readonly IPlaywright _playwright;
@@ -28,7 +28,7 @@ internal sealed class TikTokBrowser : IAsyncDisposable
     private readonly PlaywrightFetcherOptions _options;
 
     /// <summary>Private constructor — use <see cref="CreateAsync"/> to instantiate.</summary>
-    private TikTokBrowser(
+    private TiktokBrowser(
         IPlaywright playwright,
         IBrowser browser,
         IBrowserContext context,
@@ -41,12 +41,12 @@ internal sealed class TikTokBrowser : IAsyncDisposable
     }
 
     /// <summary>
-    /// Creates and fully initializes a new <see cref="TikTokBrowser"/> instance.
+    /// Creates and fully initializes a new <see cref="TiktokBrowser"/> instance.
     /// Launches Chromium with the settings from <paramref name="options"/> and creates
     /// a new browser context with a realistic user-agent and locale.
     /// </summary>
     /// <param name="options">Browser launch and navigation options.</param>
-    public static async Task<TikTokBrowser> CreateAsync(PlaywrightFetcherOptions options)
+    public static async Task<TiktokBrowser> CreateAsync(PlaywrightFetcherOptions options)
     {
         var playwright = await Playwright.CreateAsync();
 
@@ -66,7 +66,7 @@ internal sealed class TikTokBrowser : IAsyncDisposable
             }
         });
 
-        return new TikTokBrowser(playwright, browser, context, options);
+        return new TiktokBrowser(playwright, browser, context, options);
     }
 
     /// <summary>

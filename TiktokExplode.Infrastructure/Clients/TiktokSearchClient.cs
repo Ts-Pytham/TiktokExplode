@@ -16,7 +16,7 @@ namespace TiktokExplode.Infrastructure.Clients;
 public sealed class TiktokSearchClient(
     ISearchFetcher fetcher) : ISearchClient
 {
-    private readonly TikTokDownloadClient _downloadClient = new();
+    private readonly TiktokDownloadClient _downloadClient = new();
 
     /// <summary>Initializes a new <see cref="TiktokSearchClient"/> with default options.</summary>
     public TiktokSearchClient() : this(new PlaywrightSearchFetcher()) { }
@@ -29,7 +29,7 @@ public sealed class TiktokSearchClient(
         {
             _downloadClient.InjectCookies(result.Cookies);
 
-            foreach (var video in TikTokSearchParser.Parse(result.JsonContent))
+            foreach (var video in TiktokSearchParser.Parse(result.JsonContent))
             {
                 yield return video;
             }
@@ -49,7 +49,7 @@ public sealed class TiktokSearchClient(
     }
 
     /// <summary>
-    /// Core download helper that delegates to <see cref="TikTokDownloadClient"/>.
+    /// Core download helper that delegates to <see cref="TiktokDownloadClient"/>.
     /// Exposed as <c>internal</c> to allow unit-testing without a full <see cref="Video"/> graph.
     /// </summary>
     /// <param name="url">The CDN URL to stream from.</param>
@@ -75,8 +75,8 @@ public sealed class TiktokSearchClient(
     /// <returns>A new instance of <see cref="TiktokSearchClient"/>.</returns>
     public static TiktokSearchClient CreateWithBrowser(
         PlaywrightFetcherOptions? browserOptions = null,
-        TikTokOptions? options = null)
+        TiktokOptions? options = null)
         => new(new PlaywrightSearchFetcher(
             browserOptions ?? new PlaywrightFetcherOptions(),
-            options ?? new TikTokOptions()));
+            options ?? new TiktokOptions()));
 }

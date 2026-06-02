@@ -3,7 +3,7 @@ namespace TiktokExplode.Infrastructure.Options;
 /// <summary>
 /// Configuration options that control the retry and request behaviour of <c>TiktokClient</c>.
 /// </summary>
-public sealed class TikTokOptions
+public sealed class TiktokOptions
 {
     /// <summary>
     /// The maximum number of times the client will retry a request after detecting a WAF challenge.

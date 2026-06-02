@@ -13,11 +13,11 @@ namespace TiktokExplode.Infrastructure.Fetchers.Search;
 /// Microsoft Playwright to search TikTok. Intercepts the internal search API response on
 /// the first page, then fetches subsequent pages via in-browser <c>fetch()</c> calls.
 /// </summary>
-public sealed class PlaywrightSearchFetcher(PlaywrightFetcherOptions options, TikTokOptions tikTokOptions)
+public sealed class PlaywrightSearchFetcher(PlaywrightFetcherOptions options, TiktokOptions tikTokOptions)
     : ISearchFetcher, IAsyncDisposable
 {
 
-    private TikTokBrowser? _browser;
+    private TiktokBrowser? _browser;
 
     /// <summary>Semaphore that serializes the one-time browser initialization across concurrent callers.</summary>
     private readonly SemaphoreSlim _initLock = new(1, 1);
@@ -29,12 +29,12 @@ public sealed class PlaywrightSearchFetcher(PlaywrightFetcherOptions options, Ti
     private volatile bool _initialized = false;
 
     /// <summary>Initializes a new <see cref="PlaywrightSearchFetcher"/> with default options.</summary>
-    public PlaywrightSearchFetcher() : this(new PlaywrightFetcherOptions(), new TikTokOptions()) { }
+    public PlaywrightSearchFetcher() : this(new PlaywrightFetcherOptions(), new TiktokOptions()) { }
 
     /// <summary>
     /// Asynchronously streams pages of raw search results for <paramref name="keyword"/>.
     /// The browser is initialized lazily on the first call. WAF challenges are retried
-    /// up to <see cref="TikTokOptions.MaxWafRetries"/> times with linear back-off.
+    /// up to <see cref="TiktokOptions.MaxWafRetries"/> times with linear back-off.
     /// </summary>
     /// <param name="keyword">The search term to query.</param>
     /// <param name="cancellationToken">Token to cancel the operation.</param>
@@ -50,7 +50,7 @@ public sealed class PlaywrightSearchFetcher(PlaywrightFetcherOptions options, Ti
             {
                 if (!_initialized)
                 {
-                    _browser ??= await TikTokBrowser.CreateAsync(options);
+                    _browser ??= await TiktokBrowser.CreateAsync(options);
                     _initialized = true;
                 }
             }

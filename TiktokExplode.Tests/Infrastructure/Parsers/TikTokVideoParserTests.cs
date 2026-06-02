@@ -12,7 +12,7 @@ public class TikTokVideoParserTests
 {
     private const string ValidUrl = "https://www.tiktok.com/@js_nightwave/video/7579504710961548565";
 
-    private static readonly TikTokOptions NoRetry = new()
+    private static readonly TiktokOptions NoRetry = new()
     {
         MaxWafRetries = 0,
         RetryBaseDelay = TimeSpan.Zero

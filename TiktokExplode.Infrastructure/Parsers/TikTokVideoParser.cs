@@ -15,7 +15,7 @@ namespace TiktokExplode.Infrastructure.Parsers;
 /// Extracts the JSON hydration data embedded in the <c>#__UNIVERSAL_DATA_FOR_REHYDRATION__</c>
 /// script tag and maps each field to its corresponding value object.
 /// </summary>
-internal sealed class TikTokVideoParser
+internal sealed class TiktokVideoParser
 {
     /// <summary>AngleSharp HTML parser used to query the hydration script element.</summary>
     private readonly HtmlParser _htmlParser = new();
@@ -31,7 +31,7 @@ internal sealed class TikTokVideoParser
     /// <exception cref="Domain.Exceptions.VideoNotFoundException">
     /// Thrown if the <c>itemStruct</c> node is absent, indicating the video does not exist.
     /// </exception>
-    public async Task<Video> ParseAsync(string htmlContent) 
+    public async Task<Video> ParseAsync(string htmlContent)
     {
         var document = await _htmlParser.ParseDocumentAsync(htmlContent);
 
@@ -39,7 +39,7 @@ internal sealed class TikTokVideoParser
             ?? throw new TiktokParsingException("Hydration script not found in the HTML content.");
 
         var node = ExtractItemStruct(script);
-        
+
         return ParseVideo(node);
     }
 
@@ -48,7 +48,7 @@ internal sealed class TikTokVideoParser
     {
         var root = JsonNode.Parse(html.TextContent)
             ?? throw new TiktokParsingException("Failed to parse JSON content from the hydration script.");
-            
+
         var defaultScope = root["__DEFAULT_SCOPE__"]
             ?? throw new TiktokParsingException("Default scope not found in the JSON content.");
 
@@ -115,15 +115,15 @@ internal sealed class TikTokVideoParser
 
         return new Author
         {
-            Id          = author.GetString("id"),
-            UniqueId    = author.GetString("uniqueId"),
-            Name        = author.GetString("nickname"),
+            Id = author.GetString("id"),
+            UniqueId = author.GetString("uniqueId"),
+            Name = author.GetString("nickname"),
             Description = author.GetStringOrEmpty("signature"),
-            IsVerified  = author.GetBool("verified"),
-            IsPrivate   = author.GetBool("privateAccount"),
-            CreatedAt   = DateTimeOffset.FromUnixTimeSeconds(author.GetNumber<long>("createTime")),
-            Avatar      = ParseProfileImageVariants(author),
-            Stats       = ParseAuthorStats(authorStatsNode),
+            IsVerified = author.GetBool("verified"),
+            IsPrivate = author.GetBool("privateAccount"),
+            CreatedAt = DateTimeOffset.FromUnixTimeSeconds(author.GetNumber<long>("createTime")),
+            Avatar = ParseProfileImageVariants(author),
+            Stats = ParseAuthorStats(authorStatsNode),
         };
     }
 
@@ -132,11 +132,11 @@ internal sealed class TikTokVideoParser
     {
         return new AuthorStats
         {
-            Followers     = authorStatsNode.GetNumber<long>("followerCount"),
-            Following     = authorStatsNode.GetNumber<long>("followingCount"),
-            Friends       = authorStatsNode.GetNumber<long>("friendCount"),
+            Followers = authorStatsNode.GetNumber<long>("followerCount"),
+            Following = authorStatsNode.GetNumber<long>("followingCount"),
+            Friends = authorStatsNode.GetNumber<long>("friendCount"),
             LikesReceived = authorStatsNode.GetNumber<long>("heartCount"),
-            VideoCount    = authorStatsNode.GetNumber<long>("videoCount"),
+            VideoCount = authorStatsNode.GetNumber<long>("videoCount"),
         };
     }
 
@@ -147,7 +147,7 @@ internal sealed class TikTokVideoParser
         {
             Larger = author.GetString("avatarLarger"),
             Medium = author.GetString("avatarMedium"),
-            Small  = author.GetString("avatarThumb")
+            Small = author.GetString("avatarThumb")
         };
     }
 
@@ -173,9 +173,9 @@ internal sealed class TikTokVideoParser
     {
         return new VideoDownloadLinks
         {
-            OriginalUrl     = node.GetString("playAddr"),
-            WatermarkedUrl  = node.GetString("downloadAddr"),
-            OriginalSizeInBytes     = node.GetNumber<long>("size")
+            OriginalUrl = node.GetString("playAddr"),
+            WatermarkedUrl = node.GetString("downloadAddr"),
+            OriginalSizeInBytes = node.GetNumber<long>("size")
         };
     }
 
@@ -235,7 +235,7 @@ internal sealed class TikTokVideoParser
         return new VideoCover
         {
             AnimatedUrl = node.GetString("dynamicCover"),
-            StaticUrl   = node.GetString("cover")
+            StaticUrl = node.GetString("cover")
         };
     }
 }

@@ -2,6 +2,7 @@
 using TiktokExplode.Domain.Abstractions;
 using TiktokExplode.Infrastructure.Clients;
 using TiktokExplode.Infrastructure.Fetchers;
+using TiktokExplode.Infrastructure.Fetchers.Search;
 using TiktokExplode.Infrastructure.Options;
 
 namespace TiktokExplode.Extensions.DependencyInjection;
@@ -31,6 +32,12 @@ public sealed class TiktokExplodeBuilder(IServiceCollection services)
     /// Configures the Playwright-based page fetcher as the active <see cref="IPageFetcher"/>.
     /// This is the default strategy — call this only when you need to customise the options.
     /// </summary>
+    /// <remarks>
+    /// Registering this fetcher also makes <see cref="ISearchClient"/> and <see cref="ISearchFetcher"/>
+    /// available in the container, because TikTok's search API requires a real browser session
+    /// to generate signed requests. These services are <b>not</b> registered when
+    /// <see cref="UseHttpFetcher"/> is used instead.
+    /// </remarks>
     /// <param name="options">Delegate that mutates a <see cref="PlaywrightFetcherOptions"/> instance.</param>
     /// <returns>The same builder for chaining.</returns>
     public TiktokExplodeBuilder UsePlaywrightFetcher(Action<PlaywrightFetcherOptions>? options = null)
@@ -75,6 +82,8 @@ public sealed class TiktokExplodeBuilder(IServiceCollection services)
         {
             services.AddSingleton(options);
             services.AddSingleton<IPageFetcher, PlaywrightFetcher>();
+            services.AddSingleton<ISearchFetcher, PlaywrightSearchFetcher>();
+            services.AddSingleton<ISearchClient, TiktokSearchClient>();
         };
     }
 

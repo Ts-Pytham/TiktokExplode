@@ -74,9 +74,9 @@ public sealed class TiktokSearchClient(
     /// <param name="options">Options for the TikTok client.</param>
     /// <returns>A new instance of <see cref="TiktokSearchClient"/>.</returns>
     public static TiktokSearchClient CreateWithBrowser(
-        PlaywrightFetcherOptions? browserOptions = null, 
+        PlaywrightFetcherOptions? browserOptions = null,
         TikTokOptions? options = null)
         => new(new PlaywrightSearchFetcher(
-            browserOptions ?? new PlaywrightFetcherOptions(), 
+            browserOptions ?? new PlaywrightFetcherOptions(),
             options ?? new TikTokOptions()));
 }

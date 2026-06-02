@@ -29,9 +29,9 @@ internal sealed class TikTokBrowser : IAsyncDisposable
 
     /// <summary>Private constructor — use <see cref="CreateAsync"/> to instantiate.</summary>
     private TikTokBrowser(
-        IPlaywright playwright, 
-        IBrowser browser, 
-        IBrowserContext context, 
+        IPlaywright playwright,
+        IBrowser browser,
+        IBrowserContext context,
         PlaywrightFetcherOptions options)
     {
         _playwright = playwright;

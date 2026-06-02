@@ -1,0 +1,82 @@
+﻿using System.Runtime.CompilerServices;
+using TiktokExplode.Domain.Abstractions;
+using TiktokExplode.Domain.Entities;
+using TiktokExplode.Domain.ValueObjects;
+using TiktokExplode.Infrastructure.Fetchers.Search;
+using TiktokExplode.Infrastructure.Http;
+using TiktokExplode.Infrastructure.Options;
+using TiktokExplode.Infrastructure.Parsers;
+
+namespace TiktokExplode.Infrastructure.Clients;
+
+/// <summary>
+/// An <see cref="ISearchClient"/> implementation that searches TikTok by keyword using
+/// a Playwright-powered browser fetcher and streams the results as <see cref="Video"/> objects.
+/// </summary>
+public sealed class TiktokSearchClient(
+    ISearchFetcher fetcher) : ISearchClient
+{
+    private readonly TikTokDownloadClient _downloadClient = new();
+
+    /// <summary>Initializes a new <see cref="TiktokSearchClient"/> with default options.</summary>
+    public TiktokSearchClient() : this(new PlaywrightSearchFetcher()) { }
+    /// <inheritdoc/>
+    public async IAsyncEnumerable<Video> SearchAsync(
+        string keyword,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        await foreach (var result in fetcher.FetchSearchAsync(keyword, cancellationToken))
+        {
+            _downloadClient.InjectCookies(result.Cookies);
+
+            foreach (var video in TikTokSearchParser.Parse(result.JsonContent))
+            {
+                yield return video;
+            }
+        }
+    }
+
+    /// <inheritdoc/>
+    public async Task<StreamInfo> DownloadAsync(Video video, CancellationToken cancellationToken = default)
+    {
+        return await DownloadCoreAsync(video.Info.DownloadLinks.OriginalUrl, cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task<StreamInfo> DownloadWatermarkedAsync(Video video, CancellationToken cancellationToken = default)
+    {
+        return await DownloadCoreAsync(video.Info.DownloadLinks.WatermarkedUrl, cancellationToken);
+    }
+
+    /// <summary>
+    /// Core download helper that delegates to <see cref="TikTokDownloadClient"/>.
+    /// Exposed as <c>internal</c> to allow unit-testing without a full <see cref="Video"/> graph.
+    /// </summary>
+    /// <param name="url">The CDN URL to stream from.</param>
+    /// <param name="cancellationToken">Token to cancel the operation.</param>
+    internal Task<StreamInfo> DownloadCoreAsync(
+        string url,
+        CancellationToken cancellationToken = default)
+        => _downloadClient.DownloadVideoAsync(url, cancellationToken);
+
+    /// <inheritdoc/>
+    public async ValueTask DisposeAsync()
+    {
+        _downloadClient.Dispose();
+        if (fetcher is IAsyncDisposable d) await d.DisposeAsync();
+        else if (fetcher is IDisposable d2) d2.Dispose();
+    }
+
+    /// <summary>
+    /// Factory method to create a <see cref="TiktokSearchClient"/> with a Playwright-based fetcher.
+    /// </summary>
+    /// <param name="browserOptions">Options for the Playwright browser.</param>
+    /// <param name="options">Options for the TikTok client.</param>
+    /// <returns>A new instance of <see cref="TiktokSearchClient"/>.</returns>
+    public static TiktokSearchClient CreateWithBrowser(
+        PlaywrightFetcherOptions? browserOptions = null, 
+        TikTokOptions? options = null)
+        => new(new PlaywrightSearchFetcher(
+            browserOptions ?? new PlaywrightFetcherOptions(), 
+            options ?? new TikTokOptions()));
+}

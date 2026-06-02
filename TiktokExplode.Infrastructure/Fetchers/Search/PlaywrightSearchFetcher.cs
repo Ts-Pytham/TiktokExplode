@@ -1,10 +1,19 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Diagnostics;
+using System.Runtime.CompilerServices;
+using System.Text.Json.Nodes;
+using Microsoft.Playwright;
+using TiktokExplode.Domain.Exceptions;
 using TiktokExplode.Infrastructure.Browser;
 using TiktokExplode.Infrastructure.Options;
 
 namespace TiktokExplode.Infrastructure.Fetchers.Search;
 
-public sealed class PlaywrightSearchFetcher(PlaywrightFetcherOptions options) 
+/// <summary>
+/// An <see cref="ISearchFetcher"/> implementation that uses a real Chromium browser via
+/// Microsoft Playwright to search TikTok. Intercepts the internal search API response on
+/// the first page, then fetches subsequent pages via in-browser <c>fetch()</c> calls.
+/// </summary>
+public sealed class PlaywrightSearchFetcher(PlaywrightFetcherOptions options, TikTokOptions tikTokOptions)
     : ISearchFetcher, IAsyncDisposable
 {
 
@@ -19,11 +28,20 @@ public sealed class PlaywrightSearchFetcher(PlaywrightFetcherOptions options)
     /// </summary>
     private volatile bool _initialized = false;
 
-    public PlaywrightSearchFetcher() : this(new PlaywrightFetcherOptions()) { }
+    /// <summary>Initializes a new <see cref="PlaywrightSearchFetcher"/> with default options.</summary>
+    public PlaywrightSearchFetcher() : this(new PlaywrightFetcherOptions(), new TikTokOptions()) { }
 
+    /// <summary>
+    /// Asynchronously streams pages of raw search results for <paramref name="keyword"/>.
+    /// The browser is initialized lazily on the first call. WAF challenges are retried
+    /// up to <see cref="TikTokOptions.MaxWafRetries"/> times with linear back-off.
+    /// </summary>
+    /// <param name="keyword">The search term to query.</param>
+    /// <param name="cancellationToken">Token to cancel the operation.</param>
+    /// <returns>An async sequence of <see cref="SearchFetchResult"/> — one per API page.</returns>
     public async IAsyncEnumerable<SearchFetchResult> FetchSearchAsync(
-        string keyword, 
-        CancellationToken cancellationToken = default)
+        string keyword,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         if (!_initialized)
         {
@@ -42,8 +60,8 @@ public sealed class PlaywrightSearchFetcher(PlaywrightFetcherOptions options)
             }
         }
 
-        var json = await _browser!.GetSearchPageAsync(keyword);
-        var cookies = await _browser.GetCookiesAsync();
+        var json = await FetchFirstPageWithRetryAsync(keyword, cancellationToken);
+        var cookies = await _browser!.GetCookiesAsync();
 
         yield return new SearchFetchResult { JsonContent = json, Cookies = cookies };
 
@@ -53,9 +71,9 @@ public sealed class PlaywrightSearchFetcher(PlaywrightFetcherOptions options)
 
         var page = await _browser.CreatePageAsync();
 
-        while(hasMore == 1 && !cancellationToken.IsCancellationRequested)
+        while (hasMore == 1 && !cancellationToken.IsCancellationRequested)
         {
-            var nextJson = await _browser.GetSearchNextPageAsync(keyword, cursor, page);
+            var nextJson = await FetchNextPageWithRetryAsync(keyword, cursor, page, cancellationToken);
             yield return new SearchFetchResult { JsonContent = nextJson, Cookies = cookies };
 
             var nextRoot = JsonNode.Parse(nextJson);
@@ -66,6 +84,46 @@ public sealed class PlaywrightSearchFetcher(PlaywrightFetcherOptions options)
         await page.CloseAsync();
     }
 
+    private async Task<string> FetchFirstPageWithRetryAsync(string keyword, CancellationToken cancellationToken)
+    {
+        for (int attempt = 0; attempt <= tikTokOptions.MaxWafRetries; attempt++)
+        {
+            try
+            {
+                return await _browser!.GetSearchPageAsync(keyword);
+            }
+            catch (TiktokWafException) when (attempt < tikTokOptions.MaxWafRetries)
+            {
+                await Task.Delay(tikTokOptions.RetryBaseDelay * (attempt + 1), cancellationToken);
+            }
+        }
+        throw new UnreachableException();
+    }
+
+    private async Task<string> FetchNextPageWithRetryAsync(
+        string keyword,
+        long cursor,
+        IPage page,
+        CancellationToken cancellationToken)
+    {
+        for (int attempt = 0; attempt <= tikTokOptions.MaxWafRetries; attempt++)
+        {
+            try
+            {
+                return await _browser!.GetSearchNextPageAsync(keyword, cursor, page);
+            }
+            catch (TiktokWafException) when (attempt < tikTokOptions.MaxWafRetries)
+            {
+                await Task.Delay(tikTokOptions.RetryBaseDelay * (attempt + 1), cancellationToken);
+            }
+        }
+        throw new UnreachableException();
+    }
+
+    /// <summary>
+    /// Disposes the underlying browser and Playwright instance,
+    /// and releases the initialization semaphore.
+    /// </summary>
     public async ValueTask DisposeAsync()
     {
         if (_browser is not null)

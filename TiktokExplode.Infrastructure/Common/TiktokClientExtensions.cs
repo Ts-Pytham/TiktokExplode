@@ -12,7 +12,7 @@ public static class TiktokClientExtensions
 {
     private static readonly HttpClient _httpClient = new();
 
-    extension(IVideoClient client)
+    extension(IDownloadClient client)
     {
         /// <summary>
         /// Downloads the video without watermark directly to a file at <paramref name="filePath"/>.

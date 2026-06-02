@@ -28,7 +28,11 @@ internal sealed class TikTokBrowser : IAsyncDisposable
     private readonly PlaywrightFetcherOptions _options;
 
     /// <summary>Private constructor — use <see cref="CreateAsync"/> to instantiate.</summary>
-    private TikTokBrowser(IPlaywright playwright, IBrowser browser, IBrowserContext context, PlaywrightFetcherOptions options)
+    private TikTokBrowser(
+        IPlaywright playwright, 
+        IBrowser browser, 
+        IBrowserContext context, 
+        PlaywrightFetcherOptions options)
     {
         _playwright = playwright;
         _browser = browser;
@@ -119,6 +123,72 @@ internal sealed class TikTokBrowser : IAsyncDisposable
         }
     }
 
+    public async Task<string> GetSearchPageAsync(string keyword)
+    {
+        var page = await _context.NewPageAsync();
+
+        try
+        {
+            var responseTask = page.WaitForResponseAsync(
+               r => r.Url.Contains("/api/search/general/full/"),
+               new PageWaitForResponseOptions { Timeout = _options.PageTimeoutMs });
+
+            var pageResponse = await page.GotoAsync(
+                $"https://www.tiktok.com/search?q={Uri.EscapeDataString(keyword)}", new PageGotoOptions
+                {
+                    WaitUntil = WaitUntilState.DOMContentLoaded,
+                    Timeout = _options.PageTimeoutMs
+                });
+
+            if (pageResponse is null || !pageResponse.Ok)
+                throw new TiktokParsingException($"Failed to load page. Status: {pageResponse?.Status}");
+
+            var content = await page.ContentAsync();
+
+            if (content.Contains("_wafchallengeid", StringComparison.OrdinalIgnoreCase))
+                throw new TiktokWafException("TikTok WAF challenge detected.");
+
+            IResponse response;
+            try
+            {
+                response = await responseTask;
+            }
+            catch (TimeoutException)
+            {
+                throw new TiktokParsingException("Search API request was not intercepted within the timeout period. TikTok may not have issued the search request.");
+            }
+
+            if (!response.Ok)
+                throw new TiktokParsingException($"Failed to load search results. Status: {response.Status}");
+
+            return await response.TextAsync();
+        }
+        finally
+        {
+            await page.CloseAsync();
+        }
+
+    }
+
+    public async Task<string> GetSearchNextPageAsync(
+        string keyword,
+        long cursor,
+        IPage page)
+    {
+        return await page.EvaluateAsync<string>("""
+        async (args) => {
+            const url = new URL('/api/search/general/full/', 'https://www.tiktok.com');
+            url.searchParams.set('keyword', args.keyword);
+            url.searchParams.set('cursor', args.cursor);
+            url.searchParams.set('offset', args.cursor);
+            url.searchParams.set('count', '12');
+            url.searchParams.set('from_page', 'search');
+            const res = await fetch(url.toString(), { credentials: 'include' });
+            return await res.text();
+        }
+        """, new { keyword, cursor });
+    }
+
     /// <summary>
     /// Returns all cookies currently set in the browser context as a list of
     /// <see cref="CookieData"/> records, ready to be injected into the download client.
@@ -135,6 +205,9 @@ internal sealed class TikTokBrowser : IAsyncDisposable
                 Path   = c.Path ?? "/"
             })];
     }
+
+    internal async Task<IPage> CreatePageAsync()
+        => await _context.NewPageAsync();
 
     /// <summary>
     /// Disposes the browser context, the browser process, and the Playwright instance

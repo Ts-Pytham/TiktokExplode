@@ -4,5 +4,5 @@ namespace TiktokExplode.Domain.Abstractions;
 
 public interface ISearchClient : IDownloadClient
 {
-    IAsyncEnumerable<Video> SearchVideosAsync(string query, CancellationToken cancellationToken = default);
+    IAsyncEnumerable<Video> SearchVideosAsync(string keyword, CancellationToken cancellationToken = default);
 }

@@ -65,7 +65,7 @@ internal sealed class TikTokVideoParser
     }
 
     /// <summary>Maps a top-level <c>itemStruct</c> JSON node to a <see cref="Video"/> domain object.</summary>
-    private static Video ParseVideo(JsonNode node)
+    internal static Video ParseVideo(JsonNode node)
     {
         var videoNode = node["video"]
             ?? throw new TiktokParsingException("Video information not found in the JSON content.");

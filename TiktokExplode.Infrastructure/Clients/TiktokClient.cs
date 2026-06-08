@@ -73,12 +73,18 @@ public sealed class TiktokClient(IPageFetcher fetcher, TiktokOptions options) : 
     /// <inheritdoc/>
     public async Task<StreamInfo> DownloadAsync(Video video, CancellationToken cancellationToken = default)
     {
+        if(string.IsNullOrEmpty(video.Info.DownloadLinks.OriginalUrl))
+            throw new TiktokException("Video does not contain a valid original download URL.");
+
         return await DownloadCoreAsync(video.Info.DownloadLinks.OriginalUrl, cancellationToken);
     }
 
     /// <inheritdoc/>
     public async Task<StreamInfo> DownloadWatermarkedAsync(Video video, CancellationToken cancellationToken = default)
     {
+        if (string.IsNullOrEmpty(video.Info.DownloadLinks.WatermarkedUrl))
+            throw new TiktokException("Video does not contain a valid watermarked download URL.");
+
         return await DownloadCoreAsync(video.Info.DownloadLinks.WatermarkedUrl, cancellationToken);
     }
 

@@ -29,6 +29,27 @@ internal static class JsonNodeExtensions
 
     /// <summary>
     /// Returns the string value of <paramref name="field"/> in <paramref name="node"/>,
+    /// or <see langword="null"/> if the field is absent.
+    /// </summary>
+    /// <param name="node"> The <see cref="JsonNode"/> to read from.</param>
+    /// <param name="field">The name of the field to read.</param>
+    /// <returns>The string value of the field, or <see langword="null"/> if absent.</returns>
+    /// <exception cref="TiktokParsingException">Thrown if the field is present but not a JSON string.</exception>
+    public static string? GetOptionalString(this JsonNode node, string field)
+    {
+        var value = node[field];
+
+        if (value is null)
+            return null;
+
+        if (value.GetValueKind() != JsonValueKind.String)
+            throw new TiktokParsingException($"Field '{field}' has an unexpected type.");
+
+        return value.GetValue<string>();
+    }
+
+    /// <summary>
+    /// Returns the string value of <paramref name="field"/> in <paramref name="node"/>,
     /// or <see cref="string.Empty"/> if the field is absent or not a JSON string.
     /// </summary>
     public static string GetStringOrEmpty(this JsonNode node, string field)

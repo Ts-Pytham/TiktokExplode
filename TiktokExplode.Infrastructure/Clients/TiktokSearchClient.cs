@@ -1,6 +1,7 @@
 ﻿using System.Runtime.CompilerServices;
 using TiktokExplode.Domain.Abstractions;
 using TiktokExplode.Domain.Entities;
+using TiktokExplode.Domain.Exceptions;
 using TiktokExplode.Domain.ValueObjects;
 using TiktokExplode.Infrastructure.Fetchers.Search;
 using TiktokExplode.Infrastructure.Http;
@@ -39,12 +40,18 @@ public sealed class TiktokSearchClient(
     /// <inheritdoc/>
     public async Task<StreamInfo> DownloadAsync(Video video, CancellationToken cancellationToken = default)
     {
+        if(string.IsNullOrWhiteSpace(video.Info.DownloadLinks.OriginalUrl))
+            throw new TiktokException("Original download URL is not available for this video.");
+
         return await DownloadCoreAsync(video.Info.DownloadLinks.OriginalUrl, cancellationToken);
     }
 
     /// <inheritdoc/>
     public async Task<StreamInfo> DownloadWatermarkedAsync(Video video, CancellationToken cancellationToken = default)
     {
+        if (string.IsNullOrWhiteSpace(video.Info.DownloadLinks.WatermarkedUrl))
+            throw new TiktokException("Watermarked download URL is not available for this video.");
+
         return await DownloadCoreAsync(video.Info.DownloadLinks.WatermarkedUrl, cancellationToken);
     }
 

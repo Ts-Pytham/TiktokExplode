@@ -18,6 +18,9 @@ public interface IDownloadClient : IAsyncDisposable
     /// A <see cref="StreamInfo"/> containing the open video stream and its exact size in bytes
     /// as reported by the CDN <c>Content-Length</c> header.
     /// </returns>
+    /// <exception cref="Exceptions.TiktokException">
+    /// Thrown if the video does not contain a valid download URL.
+    /// </exception>
     Task<StreamInfo> DownloadAsync(Video video, CancellationToken cancellationToken = default);
 
     /// <summary>

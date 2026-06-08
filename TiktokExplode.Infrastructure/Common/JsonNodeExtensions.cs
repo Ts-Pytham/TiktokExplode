@@ -67,6 +67,34 @@ internal static class JsonNodeExtensions
     }
 
     /// <summary>
+    /// Returns the numeric value of <paramref name="field"/> in <paramref name="node"/> as
+    /// <typeparamref name="T"/>, or <see langword="null"/> if the field is absent.
+    /// JSON strings that parse as a valid number are also accepted.
+    /// </summary>
+    /// <typeparam name="T">Any value type numeric type that implements <see cref="INumber{TSelf}"/>.</typeparam>
+    /// <exception cref="TiktokParsingException">
+    /// Thrown if the field is present but is not a number or numeric string, or the string
+    /// cannot be parsed as <typeparamref name="T"/>.
+    /// </exception>
+    public static T? GetOptionalNumber<T>(this JsonNode node, string field)
+        where T : struct, INumber<T>
+    {
+        var value = node[field];
+
+        if (value is null)
+            return null;
+
+        return value.GetValueKind() switch
+        {
+            JsonValueKind.Number => value.GetValue<T>(),
+            JsonValueKind.String => T.TryParse(value.GetValue<string>(), null, out var result)
+                ? result
+                : throw new TiktokParsingException($"Field '{field}' has an invalid numeric value."),
+            _ => throw new TiktokParsingException($"Field '{field}' has an unexpected type.")
+        };
+    }
+
+    /// <summary>
     /// Returns the boolean value of <paramref name="field"/> in <paramref name="node"/>.
     /// </summary>
     /// <exception cref="TiktokParsingException">Thrown if the field is absent or not a JSON boolean.</exception>

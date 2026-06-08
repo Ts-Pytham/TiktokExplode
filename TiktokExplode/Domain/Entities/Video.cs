@@ -37,4 +37,9 @@ public sealed class Video
 
     /// <summary>Cover thumbnail URLs for this video — static frame and animated (looping) preview.</summary>
     public VideoCover Cover { get; init; } = new();
+
+    /// <summary>
+    /// The music or sound associated with the video, including track metadata and artwork.
+    /// </summary>
+    public VideoMusic Music { get; init; } = new();
 }

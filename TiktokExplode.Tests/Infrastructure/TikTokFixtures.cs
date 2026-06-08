@@ -51,6 +51,8 @@ internal static class TikTokFixtures
                     "videoQuality": "normal",
                     "width": 1080,
                     "height": 1920,
+                    "duration": 12,
+                    "preciseDuration": 12.345,
                     "cover": "https://cdn.example.com/cover_static.jpg",
                     "dynamicCover": "https://cdn.example.com/cover_animated.webp",
                     "playAddr": "https://cdn.example.com/play/video.mp4",
@@ -66,10 +68,18 @@ internal static class TikTokFixtures
                     ]
                   },
                   "music": {
+                    "id": "9000000000000000001",
+                    "title": "Midnight Synth Loop",
+                    "playUrl": "https://cdn.example.com/music/audio.mp3",
+                    "coverThumb": "https://cdn.example.com/music/cover_thumb.jpg",
+                    "coverMedium": "https://cdn.example.com/music/cover_medium.jpg",
+                    "coverLarge": "https://cdn.example.com/music/cover_large.jpg",
+                    "authorName": "Nightwave Audio",
+                    "album": "Synthetic Fixtures",
+                    "original": true,
+                    "private": false,
                     "duration": 15,
-                    "preciseDuration": {
-                      "preciseDuration": 15.123
-                    }
+                    "isCopyrighted": false
                   },
                   "statsV2": {
                     "playCount": "100000",

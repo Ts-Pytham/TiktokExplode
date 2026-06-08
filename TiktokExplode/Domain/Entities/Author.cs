@@ -34,8 +34,8 @@ public sealed class Author
     /// </summary>
     public bool IsPrivate { get; init; }
 
-    /// <summary>The date and time (UTC) when the account was created.</summary>
-    public DateTimeOffset CreatedAt { get; init; }
+    /// <summary>The date and time (UTC) when the account was created, if available.</summary>
+    public DateTimeOffset? CreatedAt { get; init; }
 
     /// <summary>Avatar image URLs in multiple resolutions.</summary>
     public ProfileImageVariants Avatar { get; init; } = new();

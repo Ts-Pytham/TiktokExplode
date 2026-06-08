@@ -27,6 +27,12 @@ internal sealed class TiktokBrowser : IAsyncDisposable
     /// <summary>Browser launch and navigation options.</summary>
     private readonly PlaywrightFetcherOptions _options;
 
+    /// <summary>
+    /// The full URL (including X-Bogus and other signature params) of the last intercepted
+    /// search API request. Stored on the first page so subsequent pages can reuse the signature.
+    /// </summary>
+    private string? _lastSearchApiUrl;
+
     /// <summary>Private constructor — use <see cref="CreateAsync"/> to instantiate.</summary>
     private TiktokBrowser(
         IPlaywright playwright,
@@ -129,14 +135,18 @@ internal sealed class TiktokBrowser : IAsyncDisposable
 
         try
         {
+            // Set up listener BEFORE navigating so we don't miss the response.
+            // No trailing slash — the actual URL may or may not have one.
             var responseTask = page.WaitForResponseAsync(
-               r => r.Url.Contains("/api/search/general/full/"),
+               r => r.Url.Contains("/api/search/general/full"),
                new PageWaitForResponseOptions { Timeout = _options.PageTimeoutMs });
 
+            // Use Load (not DOMContentLoaded): TikTok is a React SPA — the API call
+            // fires only after JS initialises, which happens after DOMContentLoaded.
             var pageResponse = await page.GotoAsync(
                 $"https://www.tiktok.com/search?q={Uri.EscapeDataString(keyword)}", new PageGotoOptions
                 {
-                    WaitUntil = WaitUntilState.DOMContentLoaded,
+                    WaitUntil = WaitUntilState.Load,
                     Timeout = _options.PageTimeoutMs
                 });
 
@@ -161,7 +171,23 @@ internal sealed class TiktokBrowser : IAsyncDisposable
             if (!response.Ok)
                 throw new TiktokParsingException($"Failed to load search results. Status: {response.Status}");
 
-            return await response.TextAsync();
+            // Save the signed URL (X-Bogus included) for use in subsequent pages.
+            _lastSearchApiUrl = response.Url;
+
+            // Do NOT use response.TextAsync() — Playwright returns "" for already-consumed
+            // streaming bodies. Instead re-fetch from JS with credentials:include so the browser
+            // sends cookies + the original signature params (X-Bogus) that TikTok requires.
+            var data = await page.EvaluateAsync<string>("""
+                async (url) => {
+                    const resp = await fetch(url, {
+                        credentials: 'include',
+                        headers: { 'accept': 'application/json, text/plain, */*' }
+                    });
+                    return await resp.text();
+                }
+                """, _lastSearchApiUrl);
+
+            return data;
         }
         finally
         {
@@ -175,18 +201,24 @@ internal sealed class TiktokBrowser : IAsyncDisposable
         long cursor,
         IPage page)
     {
+        if (_lastSearchApiUrl is null)
+            throw new TiktokParsingException("No signed search API URL available. Call GetSearchPageAsync first.");
+
+        // Reuse the signed URL from the first page (preserves X-Bogus and other signature params).
+        // Only update keyword, cursor, and offset in JS — the browser handles credentials via cookies.
         return await page.EvaluateAsync<string>("""
         async (args) => {
-            const url = new URL('/api/search/general/full/', 'https://www.tiktok.com');
+            const url = new URL(args.baseUrl);
             url.searchParams.set('keyword', args.keyword);
-            url.searchParams.set('cursor', args.cursor);
-            url.searchParams.set('offset', args.cursor);
-            url.searchParams.set('count', '12');
-            url.searchParams.set('from_page', 'search');
-            const res = await fetch(url.toString(), { credentials: 'include' });
-            return await res.text();
+            url.searchParams.set('cursor', String(args.cursor));
+            url.searchParams.set('offset', String(args.cursor));
+            const resp = await fetch(url.toString(), {
+                credentials: 'include',
+                headers: { 'accept': 'application/json, text/plain, */*' }
+            });
+            return await resp.text();
         }
-        """, new { keyword, cursor });
+        """, new { baseUrl = _lastSearchApiUrl, keyword, cursor });
     }
 
     /// <summary>

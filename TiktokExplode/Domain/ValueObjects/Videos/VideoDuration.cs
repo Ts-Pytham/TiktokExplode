@@ -9,8 +9,8 @@ public readonly record struct VideoDuration
     public int Seconds { get; init; }
 
     /// <summary>
-    /// Precise playback duration in seconds as a fractional value (e.g. <c>15.48</c>).
-    /// Sourced from the <c>music.preciseDuration.preciseDuration</c> field in TikTok's JSON.
+    /// Precise playback duration in seconds when TikTok provides fractional precision;
+    /// otherwise the same value as <see cref="Seconds"/>.
     /// </summary>
     public double PreciseSeconds { get; init; }
 }

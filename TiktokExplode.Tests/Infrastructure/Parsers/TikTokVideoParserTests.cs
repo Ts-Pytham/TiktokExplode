@@ -84,8 +84,23 @@ public class TikTokVideoParserTests
         video.Stats.Reposts.Should().Be(50);
 
         // Duration
-        video.Duration.Seconds.Should().Be(15);
-        video.Duration.PreciseSeconds.Should().BeApproximately(15.123, precision: 0.001);
+        video.Duration.Seconds.Should().Be(12);
+        video.Duration.PreciseSeconds.Should().BeApproximately(12.345, precision: 0.001);
+
+        // Music
+        video.Music.Id.Should().Be("9000000000000000001");
+        video.Music.Title.Should().Be("Midnight Synth Loop");
+        video.Music.AuthorName.Should().Be("Nightwave Audio");
+        video.Music.AlbumName.Should().Be("Synthetic Fixtures");
+        video.Music.PlayUrl.Should().Be("https://cdn.example.com/music/audio.mp3");
+        video.Music.Images.Larger.Should().Be("https://cdn.example.com/music/cover_large.jpg");
+        video.Music.Images.Medium.Should().Be("https://cdn.example.com/music/cover_medium.jpg");
+        video.Music.Images.Small.Should().Be("https://cdn.example.com/music/cover_thumb.jpg");
+        video.Music.Duration.Seconds.Should().Be(15);
+        video.Music.Duration.PreciseSeconds.Should().Be(15);
+        video.Music.IsCopyrighted.Should().BeFalse();
+        video.Music.IsOriginal.Should().BeTrue();
+        video.Music.IsPrivate.Should().BeFalse();
 
         // Cover
         video.Cover.StaticUrl.Should().Be("https://cdn.example.com/cover_static.jpg");

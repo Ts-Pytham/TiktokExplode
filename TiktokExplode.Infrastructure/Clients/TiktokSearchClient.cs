@@ -21,8 +21,9 @@ public sealed class TiktokSearchClient(
 
     /// <summary>Initializes a new <see cref="TiktokSearchClient"/> with default options.</summary>
     public TiktokSearchClient() : this(new PlaywrightSearchFetcher()) { }
+
     /// <inheritdoc/>
-    public async IAsyncEnumerable<Video> SearchAsync(
+    public async IAsyncEnumerable<Media> SearchAsync(
         string keyword,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {

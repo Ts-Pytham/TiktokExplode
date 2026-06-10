@@ -5,6 +5,7 @@ using TiktokExplode.Domain.Entities;
 using TiktokExplode.Domain.Enums;
 using TiktokExplode.Domain.Exceptions;
 using TiktokExplode.Domain.ValueObjects.Authors;
+using TiktokExplode.Domain.ValueObjects.Media;
 using TiktokExplode.Domain.ValueObjects.Videos;
 using TiktokExplode.Infrastructure.Common;
 
@@ -105,7 +106,7 @@ internal sealed class TiktokVideoParser
     }
 
     /// <summary>Maps the <c>author</c> and <c>authorStatsV2</c> sub-trees to an <see cref="Author"/>.</summary>
-    private static Author ParseAuthor(JsonNode node)
+    internal static Author ParseAuthor(JsonNode node)
     {
         var author = node["author"]
             ?? throw new TiktokParsingException("Author information not found in the JSON content.");
@@ -179,10 +180,10 @@ internal sealed class TiktokVideoParser
         };
     }
 
-    /// <summary>Maps the <c>statsV2</c> node to a <see cref="VideoStats"/>.</summary>
-    private static VideoStats ParseVideoStats(JsonNode node)
+    /// <summary>Maps the <c>statsV2</c> node to a <see cref="MediaStats"/>.</summary>
+    internal static MediaStats ParseVideoStats(JsonNode node)
     {
-        return new VideoStats
+        return new MediaStats
         {
             Views       = node.GetNumber<long>("playCount"),
             Likes       = node.GetNumber<long>("diggCount"),
@@ -221,30 +222,30 @@ internal sealed class TiktokVideoParser
             : BitrateFormat.Unknown;
     }
 
-    /// <summary>Maps the <c>textLanguage</c> and <c>textTranslatable</c> fields to a <see cref="VideoLanguage"/>.</summary>
-    private static VideoLanguage ParseVideoLanguage(JsonNode node)
+    /// <summary>Maps the <c>textLanguage</c> and <c>textTranslatable</c> fields to a <see cref="MediaLanguage"/>.</summary>
+    internal static MediaLanguage ParseVideoLanguage(JsonNode node)
     {
-        return new VideoLanguage
+        return new MediaLanguage
         {
             PrimaryLanguage = node.GetStringOrEmpty("textLanguage"),
             IsTranslatable  = node.GetBool("textTranslatable")
         };
     }
 
-    /// <summary>Maps the <c>cover</c> and <c>dynamicCover</c> fields to a <see cref="VideoCover"/>.</summary>
-    private static VideoCover ParseVideoCover(JsonNode node)
+    /// <summary>Maps the <c>cover</c> and <c>dynamicCover</c> fields to a <see cref="MediaCover"/>.</summary>
+    internal static MediaCover ParseVideoCover(JsonNode node)
     {
-        return new VideoCover
+        return new MediaCover
         {
-            AnimatedUrl = node.GetString("dynamicCover"),
+            AnimatedUrl = node.GetStringOrEmpty("dynamicCover"),
             StaticUrl   = node.GetString("cover")
         };
     }
 
-    /// <summary>Maps the <c>music</c> sub-tree to a <see cref="VideoMusic"/>.</summary>
-    private static VideoMusic ParseVideoMusic(JsonNode node)
+    /// <summary>Maps the <c>music</c> sub-tree to a <see cref="MediaMusic"/>.</summary>
+    internal static MediaMusic ParseVideoMusic(JsonNode node)
     {
-        return new VideoMusic
+        return new MediaMusic
         {
             Id              = node.GetString("id"),
             Title           = node.GetString("title"),

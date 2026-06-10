@@ -1,11 +1,11 @@
 ﻿using TiktokExplode.Domain.ValueObjects.Authors;
 
-namespace TiktokExplode.Domain.ValueObjects.Videos;
+namespace TiktokExplode.Domain.ValueObjects.Media;
 
 /// <summary>
-/// Represents the music or sound associated with a TikTok video.
+/// Represents the music or sound associated with a TikTok media.
 /// </summary>
-public sealed class VideoMusic
+public sealed class MediaMusic
 {
     /// <summary>The unique TikTok-assigned identifier for the music or sound.</summary>
     public string Id { get; init; } = string.Empty;

@@ -1,12 +1,14 @@
 ﻿using System.Text.Json.Nodes;
 using TiktokExplode.Domain.Entities;
 using TiktokExplode.Domain.Exceptions;
+using TiktokExplode.Domain.ValueObjects.Carousels;
+using TiktokExplode.Infrastructure.Common;
 
 namespace TiktokExplode.Infrastructure.Parsers;
 
 internal sealed class TiktokSearchParser
 {
-    internal static IEnumerable<Video> Parse(string jsonContent)
+    internal static IEnumerable<Media> Parse(string jsonContent)
     {
         var root = JsonNode.Parse(jsonContent)
             ?? throw new TiktokParsingException("Failed to parse search JSON.");
@@ -21,7 +23,81 @@ internal sealed class TiktokSearchParser
             var item = entry["item"]
                 ?? throw new TiktokParsingException("'item' node not found in search entry.");
 
-            yield return TiktokVideoParser.ParseVideo(item);
+            var imagePost = item["imagePost"];
+
+            if(imagePost is null)
+            {
+                yield return TiktokVideoParser.ParseVideo(item);
+                continue;
+            }
+
+
+            yield return ParseCarousel(item, imagePost);
         }
+    }
+
+    private static Carousel ParseCarousel(JsonNode node, JsonNode postNode)
+    {
+        var videoNode = node["video"]
+            ?? throw new TiktokParsingException("Video information not found in the JSON content.");
+
+        var musicNode = node["music"]
+            ?? throw new TiktokParsingException("Music information not found in the JSON content.");
+
+        var statsNode = node["statsV2"]
+            ?? throw new TiktokParsingException("Video stats not found in the JSON content.");
+
+        return new Carousel
+        {
+            Id          = node.GetString("id"),
+            Author      = TiktokVideoParser.ParseAuthor(node),
+            Stats       = TiktokVideoParser.ParseVideoStats(statsNode),
+            Music       = TiktokVideoParser.ParseVideoMusic(musicNode),
+            Post        = ParseCarouselPost(postNode),
+            Language    = TiktokVideoParser.ParseVideoLanguage(node),
+            Cover       = TiktokVideoParser.ParseVideoCover(videoNode),
+            Description = node.GetStringOrEmpty("desc"),
+            Location    = node.GetStringOrEmpty("locationCreated"),
+            CreatedAt   = DateTimeOffset.FromUnixTimeSeconds(node.GetNumber<long>("createTime")),
+        };
+    }
+
+    private static CarouselPost ParseCarouselPost(JsonNode node)
+    {
+        var coverNode = node["cover"]
+            ?? throw new TiktokParsingException("Carousel cover information not found in the JSON content.");
+
+        var imageNode = node["images"]
+            ?? throw new TiktokParsingException("Carousel images information not found in the JSON content.");
+
+        var images = imageNode.AsArray()
+            .OfType<JsonNode>()
+            .Select(ParseCarouselImage)
+            .ToList();
+
+        return new CarouselPost
+        {
+            Title       = node.GetString("title"),
+            Cover       = ParseCarouselImage(coverNode),
+            Images      = images
+        };
+    }
+
+    private static CarouselImage ParseCarouselImage(JsonNode node)
+    {
+        var imageUrlNode = node["imageURL"]
+            ?? throw new TiktokParsingException("Carousel cover URLs not found in the JSON content.");
+
+        var urls = imageUrlNode["urlList"]?.AsArray()
+            .OfType<JsonNode>()
+            .Select(urlNode => urlNode.GetValue<string>())
+            .ToList();
+
+        return new CarouselImage
+        {
+            Width   = node.GetNumber<uint>("imageWidth"),
+            Height  = node.GetNumber<uint>("imageHeight"),
+            Urls    = urls ?? []
+        };
     }
 }

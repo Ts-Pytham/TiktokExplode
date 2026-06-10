@@ -1,4 +1,4 @@
-﻿namespace TiktokExplode.Domain.ValueObjects.Videos;
+﻿namespace TiktokExplode.Domain.ValueObjects.Media;
 
 /// <summary>
 /// Represents the duration of a TikTok media resource, including a whole-second value

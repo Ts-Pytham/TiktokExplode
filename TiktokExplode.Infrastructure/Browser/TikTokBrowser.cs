@@ -135,14 +135,10 @@ internal sealed class TiktokBrowser : IAsyncDisposable
 
         try
         {
-            // Set up listener BEFORE navigating so we don't miss the response.
-            // No trailing slash — the actual URL may or may not have one.
             var responseTask = page.WaitForResponseAsync(
                r => r.Url.Contains("/api/search/general/full"),
                new PageWaitForResponseOptions { Timeout = _options.PageTimeoutMs });
 
-            // Use Load (not DOMContentLoaded): TikTok is a React SPA — the API call
-            // fires only after JS initialises, which happens after DOMContentLoaded.
             var pageResponse = await page.GotoAsync(
                 $"https://www.tiktok.com/search?q={Uri.EscapeDataString(keyword)}", new PageGotoOptions
                 {
@@ -171,12 +167,8 @@ internal sealed class TiktokBrowser : IAsyncDisposable
             if (!response.Ok)
                 throw new TiktokParsingException($"Failed to load search results. Status: {response.Status}");
 
-            // Save the signed URL (X-Bogus included) for use in subsequent pages.
             _lastSearchApiUrl = response.Url;
 
-            // Do NOT use response.TextAsync() — Playwright returns "" for already-consumed
-            // streaming bodies. Instead re-fetch from JS with credentials:include so the browser
-            // sends cookies + the original signature params (X-Bogus) that TikTok requires.
             var data = await page.EvaluateAsync<string>("""
                 async (url) => {
                     const resp = await fetch(url, {
@@ -204,8 +196,6 @@ internal sealed class TiktokBrowser : IAsyncDisposable
         if (_lastSearchApiUrl is null)
             throw new TiktokParsingException("No signed search API URL available. Call GetSearchPageAsync first.");
 
-        // Reuse the signed URL from the first page (preserves X-Bogus and other signature params).
-        // Only update keyword, cursor, and offset in JS — the browser handles credentials via cookies.
         return await page.EvaluateAsync<string>("""
         async (args) => {
             const url = new URL(args.baseUrl);

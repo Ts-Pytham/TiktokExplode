@@ -1,6 +1,8 @@
 using Microsoft.Playwright;
+using System.Diagnostics;
 using TiktokExplode.Domain.Exceptions;
 using TiktokExplode.Infrastructure.Fetchers;
+using TiktokExplode.Infrastructure.Fetchers.Search;
 using TiktokExplode.Infrastructure.Options;
 
 namespace TiktokExplode.Infrastructure.Browser;
@@ -26,12 +28,6 @@ internal sealed class TiktokBrowser : IAsyncDisposable
 
     /// <summary>Browser launch and navigation options.</summary>
     private readonly PlaywrightFetcherOptions _options;
-
-    /// <summary>
-    /// The full URL (including X-Bogus and other signature params) of the last intercepted
-    /// search API request. Stored on the first page so subsequent pages can reuse the signature.
-    /// </summary>
-    private string? _lastSearchApiUrl;
 
     /// <summary>Private constructor — use <see cref="CreateAsync"/> to instantiate.</summary>
     private TiktokBrowser(
@@ -129,86 +125,155 @@ internal sealed class TiktokBrowser : IAsyncDisposable
         }
     }
 
-    public async Task<string> GetSearchPageAsync(string keyword)
+    /// <summary>
+    /// Opens a new page in the shared context, navigates to the search results page for <paramref name="keyword"/>,
+    /// and returns the full HTML content of the loaded page.
+    /// </summary>
+    /// <param name="keyword">The search keyword to query on TikTok.</param>
+    /// <returns>The full HTML content of the search results page.</returns>
+    /// <exception cref="TiktokParsingException">Thrown if the page fails to load (non-OK HTTP status).</exception>
+    /// <exception cref="TiktokWafException">Thrown if WAF challenge markers are found in the page content.</exception>
+    public async Task<SearchPageResult> GetSearchPageAsync(string keyword)
     {
         var page = await _context.NewPageAsync();
 
+        await page.GotoAsync(
+            $"https://www.tiktok.com/search?q={Uri.EscapeDataString(keyword)}",
+            new PageGotoOptions
+            {
+                WaitUntil = WaitUntilState.Load,
+                Timeout = _options.PageTimeoutMs
+            });
+
+        await page.WaitForFunctionAsync(
+        """
+        () => document.cookie.includes('msToken')
+        """,
+        new PageWaitForFunctionOptions
+        {
+            Timeout = _options.PageTimeoutMs
+        });
+
+        var responseTask = page.WaitForResponseAsync(
+            r => r.Url.Contains("/api/search/general/full"),
+            new PageWaitForResponseOptions
+            {
+                Timeout = _options.PageTimeoutMs
+            });
+
+        var pageResponse = await page.ReloadAsync(
+            new PageReloadOptions
+            {
+                WaitUntil = WaitUntilState.Load,
+                Timeout = _options.PageTimeoutMs
+            });
+
+        if (pageResponse is null || !pageResponse.Ok)
+            throw new TiktokParsingException($"Failed to load page. Status: {pageResponse?.Status}");
+
+        var content = await page.ContentAsync();
+
+        if (content.Contains("_wafchallengeid", StringComparison.OrdinalIgnoreCase))
+            throw new TiktokWafException("TikTok WAF challenge detected.");
+
+        IResponse response;
         try
         {
-            var responseTask = page.WaitForResponseAsync(
-               r => r.Url.Contains("/api/search/general/full"),
-               new PageWaitForResponseOptions { Timeout = _options.PageTimeoutMs });
+            response = await responseTask;
+        }
+        catch (TimeoutException)
+        {
+            throw new TiktokParsingException("Search API request was not intercepted within the timeout period. TikTok may not have issued the search request.");
+        }
 
-            var pageResponse = await page.GotoAsync(
-                $"https://www.tiktok.com/search?q={Uri.EscapeDataString(keyword)}", new PageGotoOptions
-                {
-                    WaitUntil = WaitUntilState.Load,
-                    Timeout = _options.PageTimeoutMs
+        if (!response.Ok)
+            throw new TiktokParsingException($"Failed to load search results. Status: {response.Status}");
+
+        var result = await response.TextAsync();
+
+        if (string.IsNullOrWhiteSpace(result))
+        {
+            result = await page.EvaluateAsync<string>(
+                """
+            async (url) => {
+                const resp = await fetch(url, {
+                    credentials: 'include',
+                    headers: {
+                        accept: 'application/json, text/plain, */*'
+                    }
                 });
 
-            if (pageResponse is null || !pageResponse.Ok)
-                throw new TiktokParsingException($"Failed to load page. Status: {pageResponse?.Status}");
-
-            var content = await page.ContentAsync();
-
-            if (content.Contains("_wafchallengeid", StringComparison.OrdinalIgnoreCase))
-                throw new TiktokWafException("TikTok WAF challenge detected.");
-
-            IResponse response;
-            try
-            {
-                response = await responseTask;
+                return await resp.text();
             }
-            catch (TimeoutException)
-            {
-                throw new TiktokParsingException("Search API request was not intercepted within the timeout period. TikTok may not have issued the search request.");
-            }
-
-            if (!response.Ok)
-                throw new TiktokParsingException($"Failed to load search results. Status: {response.Status}");
-
-            _lastSearchApiUrl = response.Url;
-
-            var data = await page.EvaluateAsync<string>("""
-                async (url) => {
-                    const resp = await fetch(url, {
-                        credentials: 'include',
-                        headers: { 'accept': 'application/json, text/plain, */*' }
-                    });
-                    return await resp.text();
-                }
-                """, _lastSearchApiUrl);
-
-            return data;
+            """,
+                response.Url);
         }
-        finally
+
+        return new SearchPageResult
         {
-            await page.CloseAsync();
-        }
-
+            JsonContent = result,
+            Page = page
+        };
     }
 
-    public async Task<string> GetSearchNextPageAsync(
-        string keyword,
-        long cursor,
-        IPage page)
+    /// <summary>
+    /// Scrolls the search results container to trigger loading of the next page of results, waits for the API response,
+    /// </summary>
+    /// <param name="page">The page containing the search results. Must be the same page returned 
+    /// by <see cref="GetSearchPageAsync"/>.</param>
+    /// <returns>The raw JSON string returned by the search API for the next page of results.</returns>
+    /// <exception cref="TiktokParsingException"> Thrown if the search results container is not found, if the API response 
+    /// is not OK, or if the API response cannot be retrieved within the timeout period.</exception>
+    public async Task<string> GetSearchNextPageAsync(IPage page)
     {
-        if (_lastSearchApiUrl is null)
-            throw new TiktokParsingException("No signed search API URL available. Call GetSearchPageAsync first.");
-
-        return await page.EvaluateAsync<string>("""
-        async (args) => {
-            const url = new URL(args.baseUrl);
-            url.searchParams.set('keyword', args.keyword);
-            url.searchParams.set('cursor', String(args.cursor));
-            url.searchParams.set('offset', String(args.cursor));
-            const resp = await fetch(url.toString(), {
-                credentials: 'include',
-                headers: { 'accept': 'application/json, text/plain, */*' }
+        var responseTask = page.WaitForResponseAsync(
+            r => r.Url.Contains("/api/search/general/full"),
+            new PageWaitForResponseOptions
+            {
+                Timeout = _options.PageTimeoutMs
             });
+
+        var scrolled = await page.EvaluateAsync<bool>(
+        """
+        () => {
+            const main = document.querySelector('#grid-main');
+
+            if (!main)
+                return false;
+
+            main.scrollTop = main.scrollHeight;
+            return true;
+        }
+        """);
+
+        if (!scrolled)
+        {
+            throw new TiktokParsingException(
+                "Search results container '#grid-main' was not found.");
+        }
+
+        var response = await responseTask;
+
+        if (!response.Ok)
+        {
+            throw new TiktokParsingException(
+                $"Failed to load next search page. Status: {response.Status}");
+        }
+
+        return await page.EvaluateAsync<string>(
+        """
+        async (url) => {
+            const resp = await fetch(url, {
+                credentials: 'include',
+                headers: {
+                    accept: 'application/json, text/plain, */*'
+                }
+            });
+
             return await resp.text();
         }
-        """, new { baseUrl = _lastSearchApiUrl, keyword, cursor });
+        """,
+        response.Url);
     }
 
     /// <summary>

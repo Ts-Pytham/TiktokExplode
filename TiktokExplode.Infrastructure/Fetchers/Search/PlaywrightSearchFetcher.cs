@@ -60,31 +60,38 @@ public sealed class PlaywrightSearchFetcher(PlaywrightFetcherOptions options, Ti
             }
         }
 
-        var json = await FetchFirstPageWithRetryAsync(keyword, cancellationToken);
+        var firstPageResult = await FetchFirstPageWithRetryAsync(keyword, cancellationToken);
+
+        var json = firstPageResult.JsonContent;
+        var page = firstPageResult.Page;
+
         var cookies = await _browser!.GetCookiesAsync();
 
         yield return new SearchFetchResult { JsonContent = json, Cookies = cookies };
 
         var root = JsonNode.Parse(json);
         var hasMore = root?["has_more"]?.GetValue<int>() ?? 0;
-        var cursor = root?["cursor"]?.GetValue<long>() ?? 0;
 
-        var page = await _browser.CreatePageAsync();
-
-        while (hasMore == 1 && !cancellationToken.IsCancellationRequested)
+        try
         {
-            var nextJson = await FetchNextPageWithRetryAsync(keyword, cursor, page, cancellationToken);
-            yield return new SearchFetchResult { JsonContent = nextJson, Cookies = cookies };
+            while (hasMore == 1 && !cancellationToken.IsCancellationRequested)
+            {
+                var nextJson = await FetchNextPageWithRetryAsync(page, cancellationToken);
+                yield return new SearchFetchResult { JsonContent = nextJson, Cookies = cookies };
 
-            var nextRoot = JsonNode.Parse(nextJson);
-            hasMore = nextRoot?["has_more"]?.GetValue<int>() ?? 0;
-            cursor = nextRoot?["cursor"]?.GetValue<long>() ?? 0;
+                var nextRoot = JsonNode.Parse(nextJson);
+                hasMore = nextRoot?["has_more"]?.GetValue<int>() ?? 0;
+            }
         }
-
-        await page.CloseAsync();
+        finally
+        {
+            await page.CloseAsync();
+        }
     }
 
-    private async Task<string> FetchFirstPageWithRetryAsync(string keyword, CancellationToken cancellationToken)
+    private async Task<SearchPageResult> FetchFirstPageWithRetryAsync(
+        string keyword, 
+        CancellationToken cancellationToken)
     {
         for (int attempt = 0; attempt <= tikTokOptions.MaxWafRetries; attempt++)
         {
@@ -101,8 +108,6 @@ public sealed class PlaywrightSearchFetcher(PlaywrightFetcherOptions options, Ti
     }
 
     private async Task<string> FetchNextPageWithRetryAsync(
-        string keyword,
-        long cursor,
         IPage page,
         CancellationToken cancellationToken)
     {
@@ -110,7 +115,7 @@ public sealed class PlaywrightSearchFetcher(PlaywrightFetcherOptions options, Ti
         {
             try
             {
-                return await _browser!.GetSearchNextPageAsync(keyword, cursor, page);
+                return await _browser!.GetSearchNextPageAsync(page);
             }
             catch (TiktokWafException) when (attempt < tikTokOptions.MaxWafRetries)
             {

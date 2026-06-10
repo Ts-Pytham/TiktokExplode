@@ -14,7 +14,7 @@ internal sealed class TiktokSearchParser
             ?? throw new TiktokParsingException("Failed to parse search JSON.");
 
         var data = root["data"]?.AsArray()
-            ?? throw new TiktokParsingException("Search JSON does not contain 'data' array.");
+            ?? [];
 
         foreach (var entry in data)
         {

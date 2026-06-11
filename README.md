@@ -153,15 +153,15 @@ await foreach (var media in client.SearchAsync("funny cats"))
 
 > **Note:** `TiktokSearchClient` implements `ISearchClient`, which extends `IDownloadClient`. This means all extension methods (`DownloadAsync(filePath)`, `DownloadWatermarkedAsync(filePath)`, `DownloadImageAsync`, `DownloadAnimatedImageAsync`) are available directly on the search client — no need for a separate `TiktokClient` instance.
 
-> **Search scope:** The current implementation returns results from the **first page** of TikTok's search API (~10–20 results). Multi-page pagination is under active investigation — see the [Known Limitations](#known-limitations) section.
+> **Search scope:** The current implementation returns results from the **first page** of TikTok's search API (~10–20 results).
 
 #### Methods
 
-| Method                                               | Returns                   | Description                                                     |
-| ---------------------------------------------------- | ------------------------- | --------------------------------------------------------------- |
-| `SearchAsync(string keyword, CancellationToken)`     | `IAsyncEnumerable<Media>` | Streams media results (videos and carousels) for the keyword    |
-| `DownloadAsync(Video, CancellationToken)`            | `StreamInfo`              | Downloads video without watermark                               |
-| `DownloadWatermarkedAsync(Video, CancellationToken)` | `StreamInfo`              | Downloads video with watermark                                  |
+| Method                                               | Returns                   | Description                                                  |
+| ---------------------------------------------------- | ------------------------- | ------------------------------------------------------------ |
+| `SearchAsync(string keyword, CancellationToken)`     | `IAsyncEnumerable<Media>` | Streams media results (videos and carousels) for the keyword |
+| `DownloadAsync(Video, CancellationToken)`            | `StreamInfo`              | Downloads video without watermark                            |
+| `DownloadWatermarkedAsync(Video, CancellationToken)` | `StreamInfo`              | Downloads video with watermark                               |
 
 `TiktokSearchClient` implements `IAsyncDisposable` — always use `await using`.
 
@@ -252,9 +252,9 @@ All search results are `Media` objects. Use pattern matching (`is Video`, `is Ca
 
 Represents a TikTok slideshow post (multiple images + audio).
 
-| Property | Type          | Description                             |
-| -------- | ------------- | --------------------------------------- |
-| `Post`   | `CarouselPost` | Collection of images with their URLs   |
+| Property | Type           | Description                          |
+| -------- | -------------- | ------------------------------------ |
+| `Post`   | `CarouselPost` | Collection of images with their URLs |
 
 ### `Author` model
 
@@ -376,22 +376,6 @@ TiktokExplode.All/            # Meta-package — installs both packages above in
 
 TiktokExplode.Extensions.DependencyInjection/  # AddTiktokExplode() for Microsoft.Extensions.DI
 ```
-
----
-
-## Known Limitations
-
-### Search pagination
-
-`SearchAsync` currently returns only the **first page** of results (~10–20 items depending on TikTok's response).
-
-Multi-page pagination requires triggering TikTok's internal IntersectionObserver inside the live browser session. Every new page request is signed with a fresh **X-Bogus** token that covers all query parameters — modifying `cursor` or any other param after the fact invalidates the signature and returns an empty response. Approaches tried so far:
-
-- `Mouse.WheelAsync` — dispatches a `WheelEvent` but does not guarantee `scrollTop` changes on TikTok's custom scroll container.
-- `window.scrollTo()` / `document.scrollingElement.scrollTop = scrollHeight` — effective only if the scroll container is `<html>` or `<body>`; TikTok uses an internal `<div>`.
-- `route.FetchAsync()` — bypasses the browser's HTTP/TLS stack; TikTok detects the different fingerprint and returns empty body.
-
-This is a planned feature. Contributions welcome.
 
 ---
 

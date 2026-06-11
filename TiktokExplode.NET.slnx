@@ -1,5 +1,4 @@
 <Solution>
-  <Project Path="../LiaProgramacion/LiaProgramacion/LiaProgramacion.csproj" />
   <Project Path="TiktokExplode.All/TiktokExplode.All.csproj" />
   <Project Path="TiktokExplode.Console/TiktokExplode.Console.csproj" />
   <Project Path="TiktokExplode.Extensions.DependencyInjection/TiktokExplode.Extensions.DependencyInjection.csproj" />

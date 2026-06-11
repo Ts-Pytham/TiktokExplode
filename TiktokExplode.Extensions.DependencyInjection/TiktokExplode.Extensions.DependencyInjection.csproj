@@ -12,7 +12,7 @@
 
   <PropertyGroup>
     <PackageId>TiktokExplode.Extensions.DependencyInjection</PackageId>
-    <Version>1.0.0</Version>
+    <Version>1.1.0</Version>
     <Authors>Ts-Pytham</Authors>
     <Owners>Ts-Pytham</Owners>
     <Description>Microsoft.Extensions.DependencyInjection integration for TiktokExplode. Provides AddTiktokExplode() with a fluent builder to register IVideoClient and choose between Playwright or HTTP fetcher strategies.</Description>

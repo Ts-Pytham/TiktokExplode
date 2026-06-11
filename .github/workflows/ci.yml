@@ -4,12 +4,13 @@ on:
   push:
     branches: ["master"]
     tags: ["v*"]
+
   pull_request:
     branches: ["master"]
 
 jobs:
   build-and-test:
-    name: Build & Test
+    name: Build & Unit Tests
     runs-on: ubuntu-latest
 
     steps:
@@ -29,8 +30,36 @@ jobs:
       - name: Build
         run: dotnet build TiktokExplode.NET.slnx --no-restore --configuration Release
 
-      - name: Run tests
+      - name: Run Unit Tests
         run: dotnet test TiktokExplode.Tests/TiktokExplode.Tests.csproj --no-build --configuration Release --logger "console;verbosity=normal"
+
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+
+      - name: Restore dependencies
+        run: dotnet restore TiktokExplode.NET.slnx
+
+      - name: Build
+        run: dotnet build TiktokExplode.NET.slnx --no-restore --configuration Release
+
+      - name: Install Playwright Browsers
+        run: pwsh TiktokExplode.IntegrationTests/bin/Release/net9.0/playwright.ps1 install
+
+      - name: Run Integration Tests
+        run: dotnet test TiktokExplode.IntegrationTests/TiktokExplode.IntegrationTests.csproj --no-build --configuration Release --logger "console;verbosity=normal"
 
   publish:
     name: Publish to NuGet

@@ -10,7 +10,7 @@
 
   <PropertyGroup>
     <PackageId>TiktokExplode.All</PackageId>
-    <Version>1.1.1</Version>
+    <Version>1.2.0</Version>
     <Authors>Ts-Pytham</Authors>
     <Owners>Ts-Pytham</Owners>
     <Description>Meta-package that installs TiktokExplode (domain layer) and TiktokExplode.Infrastructure (HTTP/browser fetchers, parser, download client) in a single command.</Description>

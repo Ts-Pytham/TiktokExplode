@@ -11,6 +11,9 @@ public abstract class Media
     /// <summary>The unique TikTok-assigned numeric identifier for this video.</summary>
     public string Id { get; init; } = string.Empty;
 
+    /// <summary>The URL of the media on TikTok's website.</summary>
+    public abstract string Url { get; }
+
     /// <summary>The caption or description text of the video, as written by the author.</summary>
     public string Description { get; init; } = string.Empty;
 

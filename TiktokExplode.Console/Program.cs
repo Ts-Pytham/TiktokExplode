@@ -77,40 +77,47 @@ static async Task FetchAndDownloadAsync(IVideoClient client, string url)
 static async Task SearchAndDownloadAsync(ISearchClient client, string keyword, int maxResults)
 {
     const string Sep = "─────────────────────────────────────────";
-    var videos = new List<Video>();
+    var mediaList = new List<Media>();
 
     try
     {
         Console.Write($"Searching for \"{keyword}\"...");
-        await foreach (var video in client.SearchAsync(keyword))
+        await foreach (var media in client.SearchAsync(keyword))
         {
-            videos.Add(video);
-            if (videos.Count >= maxResults) break;
+            mediaList.Add(media);
+            if (mediaList.Count >= maxResults) break;
         }
-        Console.WriteLine($" found {videos.Count} result(s).");
+        Console.WriteLine($" found {mediaList.Count} result(s).");
     }
     catch (TiktokWafException ex) { Console.WriteLine($"\n[WAF] {ex.Message}"); return; }
     catch (TiktokException ex)    { Console.WriteLine($"\n[Error] {ex.Message}"); return; }
 
-    if (videos.Count == 0)
+    if (mediaList.Count == 0)
     {
         Console.WriteLine("No results.");
         return;
     }
 
     Console.WriteLine(Sep);
-    for (int i = 0; i < videos.Count; i++)
-        PrintVideo(videos[i], i + 1, videos.Count);
+    for (int i = 0; i < mediaList.Count; i++)
+    {
+        var media = mediaList[i];
+        if(media is Video video)
+            PrintVideo(video, i + 1, mediaList.Count);
+        else if (media is Carousel carousel)
+            PrintCarousel(carousel, i + 1, mediaList.Count);
+    }
+        
 
-    Console.Write($"\nDownload which video? (1-{videos.Count}, or Enter to skip): ");
+    Console.Write($"\nDownload which video? (1-{mediaList.Count}, or Enter to skip): ");
     var pick = Console.ReadLine()?.Trim();
-    if (!int.TryParse(pick, out var idx) || idx < 1 || idx > videos.Count)
+    if (!int.TryParse(pick, out var idx) || idx < 1 || idx > mediaList.Count)
     {
         Console.WriteLine("Skipping download.");
         return;
     }
-
-    await PromptDownloadAsync(client, videos[idx - 1]);
+    if (mediaList[idx - 1] is Video video2)
+        await PromptDownloadAsync(client, video2);
 }
 
 static void PrintVideo(Video video, int index, int total)
@@ -118,12 +125,28 @@ static void PrintVideo(Video video, int index, int total)
     const string Sep = "─────────────────────────────────────────";
     Console.WriteLine(Sep);
     if (total > 1) Console.WriteLine($"  [{index}/{total}]");
+    Console.WriteLine($"  Type        Video");
+    Console.WriteLine($"  URL         {video.Url}");
     Console.WriteLine($"  ID          {video.Id}");
     Console.WriteLine($"  Author      {video.Author.Name} (@{video.Author.UniqueId})");
     Console.WriteLine($"  Duration    {video.Duration.Seconds}s");
     Console.WriteLine($"  Views       {video.Stats.Views:N0}");
     Console.WriteLine($"  Likes       {video.Stats.Likes:N0}");
     Console.WriteLine($"  Size        {video.Info.DownloadLinks.OriginalSizeInBytes / (1_024 * 1_024):F2} MB");
+}
+
+static void PrintCarousel(Carousel carousel, int index, int total)
+{
+    const string Sep = "─────────────────────────────────────────";
+    Console.WriteLine(Sep);
+    if (total > 1) Console.WriteLine($"  [{index}/{total}]");
+    Console.WriteLine($"  Type        Carousel");
+    Console.WriteLine($"  URL         {carousel.Url}");
+    Console.WriteLine($"  ID          {carousel.Id}");
+    Console.WriteLine($"  Author      {carousel.Author.Name} (@{carousel.Author.UniqueId})");
+    Console.WriteLine($"  Views       {carousel.Stats.Views:N0}");
+    Console.WriteLine($"  Likes       {carousel.Stats.Likes:N0}");
+    Console.WriteLine($"  Carousel items: {carousel.Post.Images.Count}");
 }
 
 static async Task PromptDownloadAsync(IDownloadClient client, Video video)

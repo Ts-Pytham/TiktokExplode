@@ -14,4 +14,7 @@ public sealed class Video : Media
 
     /// <summary>The playback duration of the video.</summary>
     public VideoDuration Duration { get; init; }
+
+    /// <summary>The URL of the video on TikTok's website.</summary>
+    public override string Url => $"https://www.tiktok.com/@{Author.UniqueId}/video/{Id}";
 }

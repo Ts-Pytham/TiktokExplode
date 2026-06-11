@@ -256,7 +256,7 @@ internal sealed class TiktokVideoParser
             IsCopyrighted   = node.GetBool("isCopyrighted"),
             IsOriginal      = node.GetBool("original"),
             IsPrivate       = node.GetBool("private"),
-            PlayUrl         = node.GetString("playUrl"),
+            PlayUrl         = node.GetStringOrEmpty("playUrl"),
         };
     }
 

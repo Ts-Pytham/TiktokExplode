@@ -9,7 +9,7 @@ namespace TiktokExplode.Infrastructure.Http;
 /// Maintains a <see cref="CookieContainer"/> that is populated with browser session cookies
 /// before each download to satisfy TikTok's authentication requirements.
 /// </summary>
-public sealed class TiktokDownloadClient : IDisposable
+internal sealed class TiktokDownloadClient : IDisposable
 {
     /// <summary>Shared cookie container for all requests made by this client.</summary>
     private readonly CookieContainer _cookies = new();
@@ -117,42 +117,43 @@ public sealed class TiktokDownloadClient : IDisposable
     /// <c>Content-Length</c> response header.
     /// The caller is responsible for disposing the returned <see cref="StreamInfo"/>.
     /// </summary>
-    /// <param name="url">The CDN download URL for the video.</param>
+    /// <param name="url">The CDN download URL for the media.</param>
     /// <param name="cancellationToken">Token to cancel the operation.</param>
     /// <returns>
     /// A <see cref="StreamInfo"/> where <see cref="StreamInfo.ContentLength"/> is the value of
     /// the CDN <c>Content-Length</c> header, or <c>-1</c> if not present.
     /// </returns>
-    /// <exception cref="System.Net.Http.HttpRequestException">
+    /// <exception cref="HttpRequestException">
     /// Thrown if the CDN returns a non-success status code.
     /// </exception>
-    public async Task<StreamInfo> DownloadVideoAsync(
+    internal async Task<StreamInfo> DownloadAsync(
         string url,
         CancellationToken cancellationToken = default)
     {
-        var videoRequest = new HttpRequestMessage(
+        var request = new HttpRequestMessage(
             HttpMethod.Get,
             url)
         {
             Version = HttpVersion.Version11
         };
 
-        videoRequest.Headers.Referrer = new Uri("https://www.tiktok.com/");
+        request.Headers.Referrer = new Uri("https://www.tiktok.com/");
 
-        var videoResponse = await _httpClient.SendAsync(
-            videoRequest,
+        var response = await _httpClient.SendAsync(
+            request,
             HttpCompletionOption.ResponseHeadersRead,
             cancellationToken);
 
-        if (!videoResponse.IsSuccessStatusCode)
+        if (!response.IsSuccessStatusCode)
         {
-            videoResponse.Dispose();
+            response.Dispose();
             throw new HttpRequestException(
-                $"Failed to download video. Status code: {videoResponse.StatusCode}");
+                $"Failed to download media. Status code: {response.StatusCode}");
         }
 
-        var contentLength = videoResponse.Content.Headers.ContentLength ?? -1;
-        var stream = await videoResponse.Content.ReadAsStreamAsync(cancellationToken);
+        var contentLength = response.Content.Headers.ContentLength ?? -1;
+        var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+
         return new StreamInfo
         {
             Stream          = stream,
@@ -163,7 +164,7 @@ public sealed class TiktokDownloadClient : IDisposable
     /// <summary>
     /// Injects cookies with their correct domain into the session cookie container.
     /// </summary>
-    public void InjectCookies(IReadOnlyList<CookieData> cookies)
+    internal void InjectCookies(IReadOnlyList<CookieData> cookies)
     {
         foreach (var cookie in cookies)
         {

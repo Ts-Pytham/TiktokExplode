@@ -4,6 +4,7 @@ using TiktokExplode.Domain.Entities;
 using TiktokExplode.Domain.Exceptions;
 using TiktokExplode.Domain.Utilities;
 using TiktokExplode.Domain.ValueObjects;
+using TiktokExplode.Domain.ValueObjects.Carousels;
 using TiktokExplode.Infrastructure.Fetchers;
 using TiktokExplode.Infrastructure.Http;
 using TiktokExplode.Infrastructure.Options;
@@ -68,7 +69,7 @@ public sealed class TiktokClient(IPageFetcher fetcher, TiktokOptions options) : 
     internal Task<StreamInfo> DownloadCoreAsync(
         string url,
         CancellationToken cancellationToken = default)
-        => _downloadClient.DownloadVideoAsync(url, cancellationToken);
+        => _downloadClient.DownloadAsync(url, cancellationToken);
 
     /// <inheritdoc/>
     public async Task<StreamInfo> DownloadAsync(Video video, CancellationToken cancellationToken = default)
@@ -86,6 +87,15 @@ public sealed class TiktokClient(IPageFetcher fetcher, TiktokOptions options) : 
             throw new TiktokException("Video does not contain a valid watermarked download URL.");
 
         return await DownloadCoreAsync(video.Info.DownloadLinks.WatermarkedUrl, cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public Task<StreamInfo> DownloadImageAsync(CarouselImage image, CancellationToken cancellationToken = default)
+    {
+        var url = image.Urls.FirstOrDefault(u => !string.IsNullOrEmpty(u)) 
+            ?? throw new TiktokException("Image does not contain a valid download URL.");
+
+        return DownloadCoreAsync(url, cancellationToken);
     }
 
     /// <summary>

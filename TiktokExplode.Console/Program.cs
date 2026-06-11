@@ -67,7 +67,7 @@ static async Task FetchAndDownloadAsync(IVideoClient client, string url)
         var video = await client.GetVideoAsync(url);
         Console.WriteLine(" done.");
         PrintVideo(video, 1, 1);
-        await PromptDownloadAsync((IDownloadClient)client, video);
+        await PromptDownloadVideoAsync(client, video);
     }
     catch (TiktokWafException ex)  { Console.WriteLine($"\n[WAF] {ex.Message}"); }
     catch (VideoNotFoundException ex) { Console.WriteLine($"\n[404] {ex.Message}"); }
@@ -117,7 +117,9 @@ static async Task SearchAndDownloadAsync(ISearchClient client, string keyword, i
         return;
     }
     if (mediaList[idx - 1] is Video video2)
-        await PromptDownloadAsync(client, video2);
+        await PromptDownloadVideoAsync(client, video2);
+    else if (mediaList[idx - 1] is Carousel carousel2)
+        await PromptDownloadCarouselAsync(client, carousel2);
 }
 
 static void PrintVideo(Video video, int index, int total)
@@ -149,7 +151,7 @@ static void PrintCarousel(Carousel carousel, int index, int total)
     Console.WriteLine($"  Carousel items: {carousel.Post.Images.Count}");
 }
 
-static async Task PromptDownloadAsync(IDownloadClient client, Video video)
+static async Task PromptDownloadVideoAsync(IDownloadClient client, Video video)
 {
     const string Sep = "─────────────────────────────────────────";
     Console.WriteLine(Sep);
@@ -181,6 +183,50 @@ static async Task PromptDownloadAsync(IDownloadClient client, Video video)
         Console.WriteLine($"\n  Saved: {fileName}");
     }
     catch (TiktokException ex) { Console.WriteLine($"\n[Error] {ex.Message}"); }
+
+    Console.WriteLine(Sep);
+}
+
+static async Task PromptDownloadCarouselAsync(
+    IDownloadClient client,
+    Carousel carousel)
+{
+    const string Sep = "─────────────────────────────────────────";
+
+    Console.WriteLine(Sep);
+
+    Console.Write("Download images? [Y/n]: ");
+    var dl = Console.ReadLine()?.Trim();
+
+    if (!string.IsNullOrEmpty(dl) &&
+        !dl.Equals("y", StringComparison.OrdinalIgnoreCase))
+    {
+        Console.WriteLine("Skipped.");
+        return;
+    }
+
+    var directoryName =
+        $"{carousel.Id}_{carousel.Author.UniqueId}_images";
+
+    Console.WriteLine($"Saving to: {directoryName}");
+
+    IProgress<double> progress =
+        new Progress<double>(p =>
+            Console.Write($"\r  Downloading... {p:P0}   "));
+
+    try
+    {
+        await client.DownloadCarouselImagesAsync(
+            carousel,
+            directoryName,
+            progress);
+
+        Console.WriteLine($"\n  Saved: {directoryName}");
+    }
+    catch (TiktokException ex)
+    {
+        Console.WriteLine($"\n[Error] {ex.Message}");
+    }
 
     Console.WriteLine(Sep);
 }

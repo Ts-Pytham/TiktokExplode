@@ -3,6 +3,7 @@ using TiktokExplode.Domain.Abstractions;
 using TiktokExplode.Domain.Entities;
 using TiktokExplode.Domain.Exceptions;
 using TiktokExplode.Domain.ValueObjects;
+using TiktokExplode.Domain.ValueObjects.Carousels;
 using TiktokExplode.Infrastructure.Fetchers.Search;
 using TiktokExplode.Infrastructure.Http;
 using TiktokExplode.Infrastructure.Options;
@@ -56,6 +57,15 @@ public sealed class TiktokSearchClient(
         return await DownloadCoreAsync(video.Info.DownloadLinks.WatermarkedUrl, cancellationToken);
     }
 
+    /// <inheritdoc/>
+    public Task<StreamInfo> DownloadImageAsync(CarouselImage image, CancellationToken cancellationToken = default)
+    {
+        var url = image.Urls.FirstOrDefault(u => !string.IsNullOrEmpty(u))
+            ?? throw new TiktokException("Image does not contain a valid download URL.");
+
+        return DownloadCoreAsync(url, cancellationToken);
+    }
+
     /// <summary>
     /// Core download helper that delegates to <see cref="TiktokDownloadClient"/>.
     /// Exposed as <c>internal</c> to allow unit-testing without a full <see cref="Video"/> graph.
@@ -65,7 +75,7 @@ public sealed class TiktokSearchClient(
     internal Task<StreamInfo> DownloadCoreAsync(
         string url,
         CancellationToken cancellationToken = default)
-        => _downloadClient.DownloadVideoAsync(url, cancellationToken);
+        => _downloadClient.DownloadAsync(url, cancellationToken);
 
     /// <inheritdoc/>
     public async ValueTask DisposeAsync()

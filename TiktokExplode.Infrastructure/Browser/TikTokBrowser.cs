@@ -141,18 +141,18 @@ internal sealed class TiktokBrowser : IAsyncDisposable
             $"https://www.tiktok.com/search?q={Uri.EscapeDataString(keyword)}",
             new PageGotoOptions
             {
-                WaitUntil = WaitUntilState.Load,
+                WaitUntil = WaitUntilState.DOMContentLoaded,
                 Timeout = _options.PageTimeoutMs
             });
 
         await page.WaitForFunctionAsync(
-        """
-        () => document.cookie.includes('msToken')
-        """,
-        new PageWaitForFunctionOptions
-        {
-            Timeout = _options.PageTimeoutMs
-        });
+            """
+            () => document.cookie.includes('msToken')
+            """,
+            new PageWaitForFunctionOptions
+            {
+                Timeout = _options.PageTimeoutMs
+            });
 
         var responseTask = page.WaitForResponseAsync(
             r => r.Url.Contains("/api/search/general/full"),
@@ -189,7 +189,16 @@ internal sealed class TiktokBrowser : IAsyncDisposable
         if (!response.Ok)
             throw new TiktokParsingException($"Failed to load search results. Status: {response.Status}");
 
-        var result = await response.TextAsync();
+        string result;
+
+        try
+        {
+            result = await response.TextAsync();
+        }
+        catch
+        {
+            result = string.Empty;
+        }
 
         if (string.IsNullOrWhiteSpace(result))
         {

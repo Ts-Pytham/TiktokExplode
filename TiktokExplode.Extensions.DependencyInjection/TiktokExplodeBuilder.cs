@@ -2,6 +2,7 @@
 using TiktokExplode.Domain.Abstractions;
 using TiktokExplode.Infrastructure.Clients;
 using TiktokExplode.Infrastructure.Fetchers;
+using TiktokExplode.Infrastructure.Fetchers.Search;
 using TiktokExplode.Infrastructure.Options;
 
 namespace TiktokExplode.Extensions.DependencyInjection;
@@ -13,15 +14,15 @@ namespace TiktokExplode.Extensions.DependencyInjection;
 /// </summary>
 public sealed class TiktokExplodeBuilder(IServiceCollection services)
 {
-    private readonly TikTokOptions _tiktokOptions = new();
+    private readonly TiktokOptions _tiktokOptions = new();
     private Action<IServiceCollection> _fetcherRegistration = RegisterPlaywright(new());
 
     /// <summary>
     /// Configures the WAF-retry behaviour of <c>TiktokClient</c>.
     /// </summary>
-    /// <param name="options">Delegate that mutates a <see cref="TikTokOptions"/> instance.</param>
+    /// <param name="options">Delegate that mutates a <see cref="TiktokOptions"/> instance.</param>
     /// <returns>The same builder for chaining.</returns>
-    public TiktokExplodeBuilder ConfigureTiktok(Action<TikTokOptions>? options = null)
+    public TiktokExplodeBuilder ConfigureTiktok(Action<TiktokOptions>? options = null)
     {
         options?.Invoke(_tiktokOptions);
         return this;
@@ -31,6 +32,12 @@ public sealed class TiktokExplodeBuilder(IServiceCollection services)
     /// Configures the Playwright-based page fetcher as the active <see cref="IPageFetcher"/>.
     /// This is the default strategy — call this only when you need to customise the options.
     /// </summary>
+    /// <remarks>
+    /// Registering this fetcher also makes <see cref="ISearchClient"/> and <see cref="ISearchFetcher"/>
+    /// available in the container, because TikTok's search API requires a real browser session
+    /// to generate signed requests. These services are <b>not</b> registered when
+    /// <see cref="UseHttpFetcher"/> is used instead.
+    /// </remarks>
     /// <param name="options">Delegate that mutates a <see cref="PlaywrightFetcherOptions"/> instance.</param>
     /// <returns>The same builder for chaining.</returns>
     public TiktokExplodeBuilder UsePlaywrightFetcher(Action<PlaywrightFetcherOptions>? options = null)
@@ -57,7 +64,7 @@ public sealed class TiktokExplodeBuilder(IServiceCollection services)
 
     /// <summary>
     /// Applies all pending registrations to the underlying <see cref="IServiceCollection"/>.
-    /// Registers <see cref="TikTokOptions"/>, the chosen <see cref="IPageFetcher"/>,
+    /// Registers <see cref="TiktokOptions"/>, the chosen <see cref="IPageFetcher"/>,
     /// and <see cref="IVideoClient"/> as singletons.
     /// </summary>
     /// <returns>The service collection for further chaining.</returns>
@@ -75,6 +82,8 @@ public sealed class TiktokExplodeBuilder(IServiceCollection services)
         {
             services.AddSingleton(options);
             services.AddSingleton<IPageFetcher, PlaywrightFetcher>();
+            services.AddSingleton<ISearchFetcher, PlaywrightSearchFetcher>();
+            services.AddSingleton<ISearchClient, TiktokSearchClient>();
         };
     }
 

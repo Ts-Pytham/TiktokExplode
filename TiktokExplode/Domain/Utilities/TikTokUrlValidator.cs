@@ -3,7 +3,7 @@ namespace TiktokExplode.Domain.Utilities;
 /// <summary>
 /// Validates TikTok video URLs before they are used for network requests.
 /// </summary>
-public static class TikTokUrlValidator
+public static class TiktokUrlValidator
 {
     /// <summary>
     /// Set of recognized TikTok hostnames, including short-link variants

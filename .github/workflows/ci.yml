@@ -4,12 +4,13 @@ on:
   push:
     branches: ["master"]
     tags: ["v*"]
+
   pull_request:
     branches: ["master"]
 
 jobs:
   build-and-test:
-    name: Build & Test
+    name: Build & Unit Tests
     runs-on: ubuntu-latest
 
     steps:
@@ -29,7 +30,7 @@ jobs:
       - name: Build
         run: dotnet build TiktokExplode.NET.slnx --no-restore --configuration Release
 
-      - name: Run tests
+      - name: Run Unit Tests
         run: dotnet test TiktokExplode.Tests/TiktokExplode.Tests.csproj --no-build --configuration Release --logger "console;verbosity=normal"
 
   publish:

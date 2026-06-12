@@ -1,11 +1,11 @@
-﻿namespace TiktokExplode.Domain.ValueObjects.Videos;
+﻿namespace TiktokExplode.Domain.ValueObjects.Media;
 
 /// <summary>
-/// Represents the cover images for a video, including both static and animated versions.
+/// Represents the cover images for a media, including both static and animated versions.
 /// </summary>
 /// <remarks>The StaticUrl property holds the URL for the static cover image, while the AnimatedUrl property holds
 /// the URL for the animated cover image. Both properties are initialized to empty strings.</remarks>
-public sealed record VideoCover
+public sealed record MediaCover
 {
     /// <summary>
     /// Gets the URL for static resources used by the application.

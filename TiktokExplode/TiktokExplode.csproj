@@ -11,7 +11,7 @@
 
   <PropertyGroup>
     <PackageId>TiktokExplode</PackageId>
-    <Version>1.1.1</Version>
+    <Version>1.2.0</Version>
     <Authors>Ts-Pytham</Authors>
     <Owners>Ts-Pytham</Owners>
     <Description>Domain layer for TiktokExplode: strongly-typed models, interfaces, and utilities for working with TikTok video metadata. Zero external dependencies.</Description>
@@ -25,8 +25,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Include="..\README.md" Pack="true" PackagePath="\"/>
-    <None Include="..\assets\icon.png" Pack="true" PackagePath="\"/>
+    <None Include="..\README.md" Pack="true" PackagePath="\" />
+    <None Include="..\assets\icon.png" Pack="true" PackagePath="\" />
   </ItemGroup>
 
 </Project>

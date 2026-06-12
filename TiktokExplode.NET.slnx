@@ -1,8 +1,9 @@
 <Solution>
-  <Project Path="TiktokExplode/TiktokExplode.csproj" />
-  <Project Path="TiktokExplode.Infrastructure/TiktokExplode.Infrastructure.csproj" />
-  <Project Path="TiktokExplode.Extensions.DependencyInjection/TiktokExplode.Extensions.DependencyInjection.csproj" />
   <Project Path="TiktokExplode.All/TiktokExplode.All.csproj" />
-  <Project Path="TiktokExplode.Tests/TiktokExplode.Tests.csproj" />
   <Project Path="TiktokExplode.Console/TiktokExplode.Console.csproj" />
+  <Project Path="TiktokExplode.Extensions.DependencyInjection/TiktokExplode.Extensions.DependencyInjection.csproj" />
+  <Project Path="TiktokExplode.Infrastructure/TiktokExplode.Infrastructure.csproj" />
+  <Project Path="TiktokExplode.IntegrationTests/TiktokExplode.IntegrationTests.csproj" Id="15d5c0e4-8fe1-4142-99ca-22f2da34fff1" />
+  <Project Path="TiktokExplode.Tests/TiktokExplode.Tests.csproj" />
+  <Project Path="TiktokExplode/TiktokExplode.csproj" />
 </Solution>

@@ -48,6 +48,25 @@ public class TiktokClientTests
     }
 
     [Fact]
+    public async Task Should_RetryAndSucceed_When_First_Attempt_Fails()
+    {
+        var fetcher = Substitute.For<IPageFetcher>();
+        var options = new TiktokOptions { MaxWafRetries = 2, RetryBaseDelay = TimeSpan.Zero };
+
+        fetcher.FetchPageAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+               .Returns(
+                   Task.FromException<PageFetchResult>(new TiktokException()),
+                   Task.FromResult(TikTokFixtures.ValidVideoResult)
+               );
+
+        await using var client = new TiktokClient(fetcher, options);
+
+        var video = await client.GetVideoAsync(ValidUrl);
+
+        video.Should().NotBeNull();
+    }
+
+    [Fact]
     public async Task Should_ThrowTiktokWafException_When_AllRetriesAreExhausted()
     {
         var fetcher = Substitute.For<IPageFetcher>();

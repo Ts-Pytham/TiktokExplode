@@ -58,7 +58,7 @@ public sealed class HttpFetcher : IPageFetcher, IDisposable
 
             MaxConnectionsPerServer = 10,
 
-            EnableMultipleHttp2Connections = true
+            EnableMultipleHttp2Connections = true,
         };
 
         _httpClient = new HttpClient(_handler);
@@ -79,18 +79,10 @@ public sealed class HttpFetcher : IPageFetcher, IDisposable
 
         headers.Clear();
 
-        headers.TryAddWithoutValidation("User-Agent",                _options.UserAgent);
-        headers.TryAddWithoutValidation("Accept",                    "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8");
-        headers.TryAddWithoutValidation("Accept-Language",           "en-US,en;q=0.9");
-        headers.TryAddWithoutValidation("Accept-Encoding",           "gzip, deflate, br");
-        headers.TryAddWithoutValidation("Upgrade-Insecure-Requests", "1");
-        headers.TryAddWithoutValidation("Sec-Fetch-Dest",            "document");
-        headers.TryAddWithoutValidation("Sec-Fetch-Mode",            "navigate");
-        headers.TryAddWithoutValidation("Sec-Fetch-Site",            "none");
-        headers.TryAddWithoutValidation("Sec-Fetch-User",            "?1");
-        headers.TryAddWithoutValidation("sec-ch-ua",                 "\"Chromium\";v=\"136\", \"Google Chrome\";v=\"136\", \"Not.A/Brand\";v=\"99\"");
-        headers.TryAddWithoutValidation("sec-ch-ua-mobile",          "?0");
-        headers.TryAddWithoutValidation("sec-ch-ua-platform",        "\"Windows\"");
+        headers.TryAddWithoutValidation("User-Agent", _options.UserAgent);
+        headers.TryAddWithoutValidation("Accept", "*/*");
+        headers.TryAddWithoutValidation("Cache-Control", "no-cache");
+        headers.TryAddWithoutValidation("Connection", "keep-alive");
     }
 
     /// <summary>
@@ -107,11 +99,9 @@ public sealed class HttpFetcher : IPageFetcher, IDisposable
 
         using var request = new HttpRequestMessage(HttpMethod.Get, url)
         {
-            Version = HttpVersion.Version20,
-            VersionPolicy = HttpVersionPolicy.RequestVersionOrLower
+            Version = HttpVersion.Version11,
+            VersionPolicy = HttpVersionPolicy.RequestVersionExact
         };
-
-        request.Headers.Referrer = new Uri("https://www.tiktok.com/");
 
         using var response = await _httpClient.SendAsync(
             request,
@@ -122,6 +112,9 @@ public sealed class HttpFetcher : IPageFetcher, IDisposable
 
         if (content.Contains("_wafchallengeid", StringComparison.OrdinalIgnoreCase))
             throw new TiktokWafException("TikTok WAF challenge detected.");
+
+        if (!content.Contains("__UNIVERSAL_DATA_FOR_REHYDRATION__", StringComparison.OrdinalIgnoreCase))
+            throw new TiktokException("TikTok logo detected.");
 
         var cookies = _cookies.GetAllCookies()
             .Cast<Cookie>()
@@ -157,8 +150,8 @@ public sealed class HttpFetcher : IPageFetcher, IDisposable
 
             using var request = new HttpRequestMessage(HttpMethod.Get, "https://www.tiktok.com/")
             {
-                Version = HttpVersion.Version20,
-                VersionPolicy = HttpVersionPolicy.RequestVersionOrLower
+                Version = HttpVersion.Version11,
+                VersionPolicy = HttpVersionPolicy.RequestVersionExact
             };
 
             using var response = await _httpClient.SendAsync(

@@ -52,7 +52,7 @@ public sealed class TiktokClient(IPageFetcher fetcher, TiktokOptions options) : 
                 _downloadClient.InjectCookies(result.Cookies);
                 return await _parser.ParseAsync(result.HtmlContent);
             }
-            catch (TiktokWafException) when (attempt < options.MaxWafRetries)
+            catch (TiktokException) when (attempt < options.MaxWafRetries)
             {
                 await Task.Delay(options.RetryBaseDelay * (attempt + 1), cancellationToken);
             }

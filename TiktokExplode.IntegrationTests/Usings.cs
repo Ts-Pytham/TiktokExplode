@@ -4,3 +4,6 @@ global using System.Text.Json.Nodes;
 global using TiktokExplode.Infrastructure.Fetchers.Search;
 global using TiktokExplode.IntegrationTests.Fixtures;
 global using TiktokExplode.Infrastructure.Clients;
+global using TiktokExplode.Infrastructure.Fetchers;
+global using TiktokExplode.Domain.Exceptions;
+global using TiktokExplode.Infrastructure.Options;

@@ -6,7 +6,7 @@ using TiktokExplode.Domain.Exceptions;
 namespace TiktokExplode.Infrastructure.Common;
 
 /// <summary>
-/// Internal extension methods for <see cref="System.Text.Json.Nodes.JsonNode"/> that perform
+/// Internal extension methods for <see cref="JsonNode"/> that perform
 /// type-checked field reads and throw <see cref="TiktokParsingException"/> on missing or
 /// mistyped values.
 /// </summary>

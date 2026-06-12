@@ -1,8 +1,6 @@
-﻿using AngleSharp.Dom;
-using TiktokExplode.Domain.Abstractions;
+﻿using TiktokExplode.Domain.Abstractions;
 using TiktokExplode.Domain.Entities;
 using TiktokExplode.Domain.Exceptions;
-using TiktokExplode.Domain.ValueObjects;
 using TiktokExplode.Domain.ValueObjects.Carousels;
 
 namespace TiktokExplode.Infrastructure.Common;

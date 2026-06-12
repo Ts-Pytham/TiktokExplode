@@ -1,5 +1,4 @@
 using Microsoft.Playwright;
-using System.Diagnostics;
 using TiktokExplode.Domain.Exceptions;
 using TiktokExplode.Infrastructure.Fetchers;
 using TiktokExplode.Infrastructure.Fetchers.Search;
@@ -302,6 +301,10 @@ internal sealed class TiktokBrowser : IAsyncDisposable
             })];
     }
 
+    /// <summary>
+    /// Creates and returns a new page in the shared browser context for manual navigation and interaction.
+    /// </summary>
+    /// <returns></returns>
     internal async Task<IPage> CreatePageAsync()
         => await _context.NewPageAsync();
 

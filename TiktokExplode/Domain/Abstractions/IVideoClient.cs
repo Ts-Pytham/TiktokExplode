@@ -14,7 +14,7 @@ public interface IVideoClient : IDownloadClient
     /// <param name="url">The absolute TikTok video URL (e.g. <c>https://www.tiktok.com/@user/video/123</c>).</param>
     /// <param name="cancellationToken">Token to cancel the operation.</param>
     /// <returns>A <see cref="Video"/> instance containing all available metadata.</returns>
-    /// <exception cref="System.ArgumentException">Thrown when <paramref name="url"/> is not a valid TikTok URL.</exception>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="url"/> is not a valid TikTok URL.</exception>
     /// <exception cref="Exceptions.TiktokWafException">Thrown when all WAF retry attempts are exhausted.</exception>
     /// <exception cref="Exceptions.VideoNotFoundException">Thrown when the video does not exist or is private.</exception>
     /// <exception cref="Exceptions.TiktokParsingException">Thrown when the page structure cannot be parsed.</exception>

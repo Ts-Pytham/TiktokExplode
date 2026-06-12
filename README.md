@@ -117,11 +117,12 @@ await using var client = new TiktokClient(myFetcher, new TikTokOptions());
 
 #### Methods
 
-| Method                                               | Returns      | Description                       |
-| ---------------------------------------------------- | ------------ | --------------------------------- |
-| `GetVideoAsync(string url, CancellationToken)`       | `Video`      | Fetches full video metadata       |
-| `DownloadAsync(Video, CancellationToken)`            | `StreamInfo` | Downloads video without watermark |
-| `DownloadWatermarkedAsync(Video, CancellationToken)` | `StreamInfo` | Downloads video with watermark    |
+| Method                                                       | Returns      | Description                             |
+| ------------------------------------------------------------ | ------------ | --------------------------------------- |
+| `GetVideoAsync(string url, CancellationToken)`               | `Video`      | Fetches full video metadata             |
+| `DownloadAsync(Video, CancellationToken)`                    | `StreamInfo` | Downloads video without watermark       |
+| `DownloadWatermarkedAsync(Video, CancellationToken)`         | `StreamInfo` | Downloads video with watermark          |
+| `DownloadImageAsync(CarouselImage, CancellationToken)`       | `StreamInfo` | Downloads a carousel image stream       |
 
 `TiktokClient` implements `IAsyncDisposable` — always use `await using`.
 
@@ -151,37 +152,47 @@ await foreach (var media in client.SearchAsync("funny cats"))
 }
 ```
 
-> **Note:** `TiktokSearchClient` implements `ISearchClient`, which extends `IDownloadClient`. This means all extension methods (`DownloadAsync(filePath)`, `DownloadWatermarkedAsync(filePath)`, `DownloadImageAsync`, `DownloadAnimatedImageAsync`) are available directly on the search client — no need for a separate `TiktokClient` instance.
+> **Note:** `TiktokSearchClient` implements `ISearchClient`, which extends `IDownloadClient`. This means all extension methods (`DownloadAsync(filePath)`, `DownloadWatermarkedAsync(filePath)`, `DownloadImageAsync`, `DownloadAnimatedImageAsync`, `DownloadCarouselImagesAsync`) are available directly on the search client — no need for a separate `TiktokClient` instance.
 
 > **Search scope:** The current implementation returns results from the **first page** of TikTok's search API (~10–20 results).
 
 #### Methods
 
-| Method                                               | Returns                   | Description                                                  |
-| ---------------------------------------------------- | ------------------------- | ------------------------------------------------------------ |
-| `SearchAsync(string keyword, CancellationToken)`     | `IAsyncEnumerable<Media>` | Streams media results (videos and carousels) for the keyword |
-| `DownloadAsync(Video, CancellationToken)`            | `StreamInfo`              | Downloads video without watermark                            |
-| `DownloadWatermarkedAsync(Video, CancellationToken)` | `StreamInfo`              | Downloads video with watermark                               |
+| Method                                                         | Returns                   | Description                                                  |
+| -------------------------------------------------------------- | ------------------------- | ------------------------------------------------------------ |
+| `SearchAsync(string keyword, CancellationToken)`               | `IAsyncEnumerable<Media>` | Streams media results (videos and carousels) for the keyword |
+| `DownloadAsync(Video, CancellationToken)`                      | `StreamInfo`              | Downloads video without watermark                            |
+| `DownloadWatermarkedAsync(Video, CancellationToken)`           | `StreamInfo`              | Downloads video with watermark                               |
+| `DownloadImageAsync(CarouselImage, CancellationToken)`         | `StreamInfo`              | Downloads a carousel image stream                            |
 
 `TiktokSearchClient` implements `IAsyncDisposable` — always use `await using`.
 
-#### Extension methods (via `TiktokClientExtensions`)
+#### Extension methods (via `DownloadClientExtensions`)
 
-| Method                                                     | Description                                                         |
-| ---------------------------------------------------------- | ------------------------------------------------------------------- |
-| `DownloadAsync(video, filePath, progress?, ct)`            | Downloads video without watermark to a file, with optional progress |
-| `DownloadWatermarkedAsync(video, filePath, progress?, ct)` | Downloads video with watermark to a file, with optional progress    |
-| `DownloadImageAsync(video, filePath, ct)`                  | Downloads the static cover image (JPEG)                             |
-| `DownloadAnimatedImageAsync(video, filePath, ct)`          | Downloads the animated cover (WebP)                                 |
+| Method                                                                  | Description                                                              |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `DownloadAsync(video, filePath, progress?, ct)`                         | Downloads video without watermark to a file, with optional progress      |
+| `DownloadWatermarkedAsync(video, filePath, progress?, ct)`              | Downloads video with watermark to a file, with optional progress         |
+| `DownloadImageAsync(image, filePath, progress?, ct)`                    | Downloads a single carousel image to a file, with optional progress      |
+| `DownloadCarouselImagesAsync(carousel, directoryPath, progress?, ct)`   | Downloads all carousel images to a directory with overall progress       |
+| `DownloadImageAsync(video, filePath, ct)`                               | Downloads the static cover image of a video (JPEG)                       |
+| `DownloadAnimatedImageAsync(video, filePath, ct)`                       | Downloads the animated cover of a video (WebP)                           |
 
 ```csharp
-// Download to file path with optional progress
-await client.DownloadAsync(video, "output.mp4", progress, cancellationToken);
-await client.DownloadWatermarkedAsync(video, "output_wm.mp4", progress, cancellationToken);
+// Download video to file with optional progress
+IProgress<double> progress = new Progress<double>(p => Console.Write($"\rProgress: {p:P0}"));
+await client.DownloadAsync(video, "output.mp4", progress);
+await client.DownloadWatermarkedAsync(video, "output_wm.mp4", progress);
 
 // Download cover images
 await client.DownloadImageAsync(video, "cover.jpg");
 await client.DownloadAnimatedImageAsync(video, "cover.webp");
+
+// Download a single carousel image
+await client.DownloadImageAsync(carousel.Post.Images[0], "image_1.jpg", progress);
+
+// Download all carousel images to a directory (named image_1.jpg, image_2.jpg, ...)
+await client.DownloadCarouselImagesAsync(carousel, "my_carousel_folder", progress);
 ```
 
 > **Note:** Animated covers are served by TikTok as animated WebP files. Not all videos have an animated cover — if `Cover.AnimatedUrl` is empty, the video only has a static cover.

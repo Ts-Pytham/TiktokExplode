@@ -1,6 +1,7 @@
 using Microsoft.Playwright;
 using TiktokExplode.Domain.Exceptions;
 using TiktokExplode.Infrastructure.Fetchers;
+using TiktokExplode.Infrastructure.Fetchers.Search;
 using TiktokExplode.Infrastructure.Options;
 
 namespace TiktokExplode.Infrastructure.Browser;
@@ -11,7 +12,7 @@ namespace TiktokExplode.Infrastructure.Browser;
 /// Resource-heavy assets (images, media, fonts, stylesheets) are intercepted and aborted
 /// to speed up page load times.
 /// </summary>
-internal sealed class TikTokBrowser : IAsyncDisposable
+internal sealed class TiktokBrowser : IAsyncDisposable
 {
     /// <summary>The top-level Playwright instance. Must be disposed last.</summary>
     private readonly IPlaywright _playwright;
@@ -28,7 +29,11 @@ internal sealed class TikTokBrowser : IAsyncDisposable
     private readonly PlaywrightFetcherOptions _options;
 
     /// <summary>Private constructor — use <see cref="CreateAsync"/> to instantiate.</summary>
-    private TikTokBrowser(IPlaywright playwright, IBrowser browser, IBrowserContext context, PlaywrightFetcherOptions options)
+    private TiktokBrowser(
+        IPlaywright playwright,
+        IBrowser browser,
+        IBrowserContext context,
+        PlaywrightFetcherOptions options)
     {
         _playwright = playwright;
         _browser = browser;
@@ -37,12 +42,12 @@ internal sealed class TikTokBrowser : IAsyncDisposable
     }
 
     /// <summary>
-    /// Creates and fully initializes a new <see cref="TikTokBrowser"/> instance.
+    /// Creates and fully initializes a new <see cref="TiktokBrowser"/> instance.
     /// Launches Chromium with the settings from <paramref name="options"/> and creates
     /// a new browser context with a realistic user-agent and locale.
     /// </summary>
     /// <param name="options">Browser launch and navigation options.</param>
-    public static async Task<TikTokBrowser> CreateAsync(PlaywrightFetcherOptions options)
+    public static async Task<TiktokBrowser> CreateAsync(PlaywrightFetcherOptions options)
     {
         var playwright = await Playwright.CreateAsync();
 
@@ -62,7 +67,7 @@ internal sealed class TikTokBrowser : IAsyncDisposable
             }
         });
 
-        return new TikTokBrowser(playwright, browser, context, options);
+        return new TiktokBrowser(playwright, browser, context, options);
     }
 
     /// <summary>
@@ -120,6 +125,166 @@ internal sealed class TikTokBrowser : IAsyncDisposable
     }
 
     /// <summary>
+    /// Opens a new page in the shared context, navigates to the search results page for <paramref name="keyword"/>,
+    /// and returns the full HTML content of the loaded page.
+    /// </summary>
+    /// <param name="keyword">The search keyword to query on TikTok.</param>
+    /// <returns>The full HTML content of the search results page.</returns>
+    /// <exception cref="TiktokParsingException">Thrown if the page fails to load (non-OK HTTP status).</exception>
+    /// <exception cref="TiktokWafException">Thrown if WAF challenge markers are found in the page content.</exception>
+    public async Task<SearchPageResult> GetSearchPageAsync(string keyword)
+    {
+        var page = await _context.NewPageAsync();
+
+        await page.GotoAsync(
+            $"https://www.tiktok.com/search?q={Uri.EscapeDataString(keyword)}",
+            new PageGotoOptions
+            {
+                WaitUntil = WaitUntilState.DOMContentLoaded,
+                Timeout = _options.PageTimeoutMs
+            });
+
+        await page.WaitForFunctionAsync(
+            """
+            () => document.cookie.includes('msToken')
+            """,
+            new PageWaitForFunctionOptions
+            {
+                Timeout = _options.PageTimeoutMs
+            });
+
+        var responseTask = page.WaitForResponseAsync(
+            r => r.Url.Contains("/api/search/general/full"),
+            new PageWaitForResponseOptions
+            {
+                Timeout = _options.PageTimeoutMs
+            });
+
+        var pageResponse = await page.ReloadAsync(
+            new PageReloadOptions
+            {
+                WaitUntil = WaitUntilState.Load,
+                Timeout = _options.PageTimeoutMs
+            });
+
+        if (pageResponse is null || !pageResponse.Ok)
+            throw new TiktokParsingException($"Failed to load page. Status: {pageResponse?.Status}");
+
+        var content = await page.ContentAsync();
+
+        if (content.Contains("_wafchallengeid", StringComparison.OrdinalIgnoreCase))
+            throw new TiktokWafException("TikTok WAF challenge detected.");
+
+        IResponse response;
+        try
+        {
+            response = await responseTask;
+        }
+        catch (TimeoutException)
+        {
+            throw new TiktokParsingException("Search API request was not intercepted within the timeout period. TikTok may not have issued the search request.");
+        }
+
+        if (!response.Ok)
+            throw new TiktokParsingException($"Failed to load search results. Status: {response.Status}");
+
+        string result;
+
+        try
+        {
+            result = await response.TextAsync();
+        }
+        catch
+        {
+            result = string.Empty;
+        }
+
+        if (string.IsNullOrWhiteSpace(result))
+        {
+            result = await page.EvaluateAsync<string>(
+                """
+            async (url) => {
+                const resp = await fetch(url, {
+                    credentials: 'include',
+                    headers: {
+                        accept: 'application/json, text/plain, */*'
+                    }
+                });
+
+                return await resp.text();
+            }
+            """,
+                response.Url);
+        }
+
+        return new SearchPageResult
+        {
+            JsonContent = result,
+            Page = page
+        };
+    }
+
+    /// <summary>
+    /// Scrolls the search results container to trigger loading of the next page of results, waits for the API response,
+    /// </summary>
+    /// <param name="page">The page containing the search results. Must be the same page returned 
+    /// by <see cref="GetSearchPageAsync"/>.</param>
+    /// <returns>The raw JSON string returned by the search API for the next page of results.</returns>
+    /// <exception cref="TiktokParsingException"> Thrown if the search results container is not found, if the API response 
+    /// is not OK, or if the API response cannot be retrieved within the timeout period.</exception>
+    public async Task<string> GetSearchNextPageAsync(IPage page)
+    {
+        var responseTask = page.WaitForResponseAsync(
+            r => r.Url.Contains("/api/search/general/full"),
+            new PageWaitForResponseOptions
+            {
+                Timeout = _options.PageTimeoutMs
+            });
+
+        var scrolled = await page.EvaluateAsync<bool>(
+        """
+        () => {
+            const main = document.querySelector('#grid-main');
+
+            if (!main)
+                return false;
+
+            main.scrollTop = main.scrollHeight;
+            return true;
+        }
+        """);
+
+        if (!scrolled)
+        {
+            throw new TiktokParsingException(
+                "Search results container '#grid-main' was not found.");
+        }
+
+        var response = await responseTask;
+
+        if (!response.Ok)
+        {
+            throw new TiktokParsingException(
+                $"Failed to load next search page. Status: {response.Status}");
+        }
+
+        return await page.EvaluateAsync<string>(
+        """
+        async (url) => {
+            const resp = await fetch(url, {
+                credentials: 'include',
+                headers: {
+                    accept: 'application/json, text/plain, */*'
+                }
+            });
+
+            return await resp.text();
+        }
+        """,
+        response.Url);
+    }
+
+    /// <summary>
     /// Returns all cookies currently set in the browser context as a list of
     /// <see cref="CookieData"/> records, ready to be injected into the download client.
     /// </summary>
@@ -135,6 +300,13 @@ internal sealed class TikTokBrowser : IAsyncDisposable
                 Path   = c.Path ?? "/"
             })];
     }
+
+    /// <summary>
+    /// Creates and returns a new page in the shared browser context for manual navigation and interaction.
+    /// </summary>
+    /// <returns></returns>
+    internal async Task<IPage> CreatePageAsync()
+        => await _context.NewPageAsync();
 
     /// <summary>
     /// Disposes the browser context, the browser process, and the Playwright instance

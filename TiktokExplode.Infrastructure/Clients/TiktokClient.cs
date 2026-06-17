@@ -4,6 +4,7 @@ using TiktokExplode.Domain.Entities;
 using TiktokExplode.Domain.Exceptions;
 using TiktokExplode.Domain.Utilities;
 using TiktokExplode.Domain.ValueObjects;
+using TiktokExplode.Domain.ValueObjects.Carousels;
 using TiktokExplode.Infrastructure.Fetchers;
 using TiktokExplode.Infrastructure.Http;
 using TiktokExplode.Infrastructure.Options;
@@ -14,23 +15,23 @@ namespace TiktokExplode.Infrastructure.Clients;
 /// <summary>
 /// Default implementation of <see cref="IVideoClient"/> that fetches and parses TikTok video pages,
 /// then streams video files from TikTok's CDN.
-/// Supports automatic WAF-retry logic configured via <see cref="TikTokOptions"/>.
+/// Supports automatic WAF-retry logic configured via <see cref="TiktokOptions"/>.
 /// </summary>
 /// <param name="fetcher">The strategy used to fetch TikTok video page HTML.</param>
 /// <param name="options">Retry and delay settings for WAF bypass attempts.</param>
-public sealed class TiktokClient(IPageFetcher fetcher, TikTokOptions options) : IVideoClient, IAsyncDisposable
+public sealed class TiktokClient(IPageFetcher fetcher, TiktokOptions options) : IVideoClient, IAsyncDisposable
 {
     /// <summary>Reusable HTTP client for CDN video downloads. Receives cookies from the fetcher.</summary>
-    private readonly TikTokDownloadClient _downloadClient = new();
+    private readonly TiktokDownloadClient _downloadClient = new();
 
     /// <summary>Stateless parser that extracts a <see cref="Video"/> from raw page HTML.</summary>
-    private readonly TikTokVideoParser _parser = new();
+    private readonly TiktokVideoParser _parser = new();
 
     /// <summary>
     /// Initializes a new <see cref="TiktokClient"/> with a Playwright-based page fetcher
     /// and default retry options.
     /// </summary>
-    public TiktokClient() : this(new PlaywrightFetcher(), new TikTokOptions()) { }
+    public TiktokClient() : this(new PlaywrightFetcher(), new TiktokOptions()) { }
 
     /// <inheritdoc/>
     /// <remarks>
@@ -40,7 +41,7 @@ public sealed class TiktokClient(IPageFetcher fetcher, TikTokOptions options) : 
     /// </remarks>
     public async Task<Video> GetVideoAsync(string url, CancellationToken cancellationToken = default)
     {
-        TikTokUrlValidator.Validate(url);
+        TiktokUrlValidator.Validate(url);
 
         for (int attempt = 0; attempt <= options.MaxWafRetries; attempt++)
         {
@@ -51,7 +52,7 @@ public sealed class TiktokClient(IPageFetcher fetcher, TikTokOptions options) : 
                 _downloadClient.InjectCookies(result.Cookies);
                 return await _parser.ParseAsync(result.HtmlContent);
             }
-            catch (TiktokWafException) when (attempt < options.MaxWafRetries)
+            catch (TiktokException) when (attempt < options.MaxWafRetries)
             {
                 await Task.Delay(options.RetryBaseDelay * (attempt + 1), cancellationToken);
             }
@@ -60,7 +61,7 @@ public sealed class TiktokClient(IPageFetcher fetcher, TikTokOptions options) : 
     }
 
     /// <summary>
-    /// Core download helper that delegates to <see cref="TikTokDownloadClient"/>.
+    /// Core download helper that delegates to <see cref="TiktokDownloadClient"/>.
     /// Exposed as <c>internal</c> to allow unit-testing without a full <see cref="Video"/> graph.
     /// </summary>
     /// <param name="url">The CDN URL to stream from.</param>
@@ -68,18 +69,33 @@ public sealed class TiktokClient(IPageFetcher fetcher, TikTokOptions options) : 
     internal Task<StreamInfo> DownloadCoreAsync(
         string url,
         CancellationToken cancellationToken = default)
-        => _downloadClient.DownloadVideoAsync(url, cancellationToken);
+        => _downloadClient.DownloadAsync(url, cancellationToken);
 
     /// <inheritdoc/>
     public async Task<StreamInfo> DownloadAsync(Video video, CancellationToken cancellationToken = default)
     {
+        if(string.IsNullOrEmpty(video.Info.DownloadLinks.OriginalUrl))
+            throw new TiktokException("Video does not contain a valid original download URL.");
+
         return await DownloadCoreAsync(video.Info.DownloadLinks.OriginalUrl, cancellationToken);
     }
 
     /// <inheritdoc/>
     public async Task<StreamInfo> DownloadWatermarkedAsync(Video video, CancellationToken cancellationToken = default)
     {
+        if (string.IsNullOrEmpty(video.Info.DownloadLinks.WatermarkedUrl))
+            throw new TiktokException("Video does not contain a valid watermarked download URL.");
+
         return await DownloadCoreAsync(video.Info.DownloadLinks.WatermarkedUrl, cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public Task<StreamInfo> DownloadImageAsync(CarouselImage image, CancellationToken cancellationToken = default)
+    {
+        var url = image.Urls.FirstOrDefault(u => !string.IsNullOrEmpty(u)) 
+            ?? throw new TiktokException("Image does not contain a valid download URL.");
+
+        return DownloadCoreAsync(url, cancellationToken);
     }
 
     /// <summary>
@@ -106,8 +122,8 @@ public sealed class TiktokClient(IPageFetcher fetcher, TikTokOptions options) : 
     /// </summary>
     /// <param name="browserOptions">Browser launch and navigation options. Uses defaults when <see langword="null"/>.</param>
     /// <param name="options">Retry and delay settings. Uses defaults when <see langword="null"/>.</param>
-    public static TiktokClient CreateWithBrowser(PlaywrightFetcherOptions? browserOptions = null, TikTokOptions? options = null)
-        => new(new PlaywrightFetcher(browserOptions ?? new PlaywrightFetcherOptions()), options ?? new TikTokOptions());
+    public static TiktokClient CreateWithBrowser(PlaywrightFetcherOptions? browserOptions = null, TiktokOptions? options = null)
+        => new(new PlaywrightFetcher(browserOptions ?? new PlaywrightFetcherOptions()), options ?? new TiktokOptions());
 
     /// <summary>
     /// Creates a <see cref="TiktokClient"/> that uses a plain <see cref="System.Net.Http.HttpClient"/>
@@ -115,6 +131,6 @@ public sealed class TiktokClient(IPageFetcher fetcher, TikTokOptions options) : 
     /// </summary>
     /// <param name="httpOptions">HTTP fetch options. Uses defaults when <see langword="null"/>.</param>
     /// <param name="options">Retry and delay settings. Uses defaults when <see langword="null"/>.</param>
-    public static TiktokClient CreateWithHttp(HttpFetcherOptions? httpOptions = null, TikTokOptions? options = null)
-        => new(new HttpFetcher(httpOptions ?? new HttpFetcherOptions()), options ?? new TikTokOptions());
+    public static TiktokClient CreateWithHttp(HttpFetcherOptions? httpOptions = null, TiktokOptions? options = null)
+        => new(new HttpFetcher(httpOptions ?? new HttpFetcherOptions()), options ?? new TiktokOptions());
 }

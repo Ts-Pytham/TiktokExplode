@@ -217,11 +217,11 @@ public sealed class MusicPlayer : IAsyncDisposable
         _skipCts.Dispose();
         _stopCts.Dispose();
 
-        if (_audioClient is not null)
+        var client = _audioClient;
+        if (client is not null)
         {
-            await _audioClient.StopAsync();
-            _audioClient.Dispose();
-            _audioClient = null;
+            await client.StopAsync();
+            client.Dispose();
         }
 
         if (OnDisposed is not null)

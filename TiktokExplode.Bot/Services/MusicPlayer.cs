@@ -64,7 +64,6 @@ public sealed class MusicPlayer : IAsyncDisposable
         _queueSnapshot.Add(item);
         _queueLock.Release();
         await _queue.Writer.WriteAsync(item);
-        // Cancelar timer de inactividad mientras hay canciones pendientes
         _inactivityTimer.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
     }
 
@@ -74,19 +73,14 @@ public sealed class MusicPlayer : IAsyncDisposable
         return Task.CompletedTask;
     }
 
-    // Para la canción actual y vacía la cola, pero el player sigue vivo
-    // para aceptar nuevas canciones. El shutdown total ocurre en DisposeAsync.
     public async Task StopAsync()
     {
-        // Vaciar el snapshot
         await _queueLock.WaitAsync();
         _queueSnapshot.Clear();
         _queueLock.Release();
 
-        // Drenar el channel sin sellarlo
         while (_queue.Reader.TryRead(out _)) { }
 
-        // Cancelar la canción actual
         await _skipCts.CancelAsync();
     }
 
@@ -203,10 +197,8 @@ public sealed class MusicPlayer : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        // Parar canción actual y vaciar cola
         await StopAsync();
 
-        // Cerrar el loop de reproducción
         _queue.Writer.TryComplete();
         await _stopCts.CancelAsync();
         if (_loopTask is not null)

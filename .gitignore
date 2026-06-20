@@ -48,6 +48,8 @@ Generated\ Files/
 # NUnit
 *.VisualState.xml
 TestResult.xml
+
+TiktokExplode.Bot/appsettings.json
 nunit-*.xml
 
 # Build Results of an ATL Project

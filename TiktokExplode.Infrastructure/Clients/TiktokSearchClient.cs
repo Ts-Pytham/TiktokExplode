@@ -23,6 +23,13 @@ public sealed class TiktokSearchClient(
     /// <summary>Initializes a new <see cref="TiktokSearchClient"/> with default options.</summary>
     public TiktokSearchClient() : this(new PlaywrightSearchFetcher()) { }
 
+    internal TiktokSearchClient(
+        TiktokDownloadClient downloadClient,
+        ISearchFetcher fetcher) : this(fetcher)
+    {
+        _downloadClient = downloadClient;
+    }
+
     /// <inheritdoc/>
     public async IAsyncEnumerable<Media> SearchAsync(
         string keyword,

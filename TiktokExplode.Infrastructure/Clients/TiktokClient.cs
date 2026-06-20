@@ -31,7 +31,17 @@ public sealed class TiktokClient(IPageFetcher fetcher, TiktokOptions options) : 
     /// Initializes a new <see cref="TiktokClient"/> with a Playwright-based page fetcher
     /// and default retry options.
     /// </summary>
-    public TiktokClient() : this(new PlaywrightFetcher(), new TiktokOptions()) { }
+    public TiktokClient()
+        : this(new PlaywrightFetcher(), new TiktokOptions()) { }
+
+    internal TiktokClient(
+        TiktokDownloadClient downloadClient,
+        IPageFetcher fetcher,
+        TiktokOptions options)
+            : this(fetcher, options)
+    {
+        _downloadClient = downloadClient;
+    }
 
     /// <inheritdoc/>
     /// <remarks>
@@ -74,7 +84,7 @@ public sealed class TiktokClient(IPageFetcher fetcher, TiktokOptions options) : 
     /// <inheritdoc/>
     public async Task<StreamInfo> DownloadAsync(Video video, CancellationToken cancellationToken = default)
     {
-        if(string.IsNullOrEmpty(video.Info.DownloadLinks.OriginalUrl))
+        if (string.IsNullOrEmpty(video.Info.DownloadLinks.OriginalUrl))
             throw new TiktokException("Video does not contain a valid original download URL.");
 
         return await DownloadCoreAsync(video.Info.DownloadLinks.OriginalUrl, cancellationToken);
@@ -92,7 +102,7 @@ public sealed class TiktokClient(IPageFetcher fetcher, TiktokOptions options) : 
     /// <inheritdoc/>
     public Task<StreamInfo> DownloadImageAsync(CarouselImage image, CancellationToken cancellationToken = default)
     {
-        var url = image.Urls.FirstOrDefault(u => !string.IsNullOrEmpty(u)) 
+        var url = image.Urls.FirstOrDefault(u => !string.IsNullOrEmpty(u))
             ?? throw new TiktokException("Image does not contain a valid download URL.");
 
         return DownloadCoreAsync(url, cancellationToken);

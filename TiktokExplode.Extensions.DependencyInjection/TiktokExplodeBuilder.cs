@@ -3,6 +3,7 @@ using TiktokExplode.Domain.Abstractions;
 using TiktokExplode.Infrastructure.Clients;
 using TiktokExplode.Infrastructure.Fetchers;
 using TiktokExplode.Infrastructure.Fetchers.Search;
+using TiktokExplode.Infrastructure.Http;
 using TiktokExplode.Infrastructure.Options;
 
 namespace TiktokExplode.Extensions.DependencyInjection;
@@ -15,7 +16,8 @@ namespace TiktokExplode.Extensions.DependencyInjection;
 public sealed class TiktokExplodeBuilder(IServiceCollection services)
 {
     private readonly TiktokOptions _tiktokOptions = new();
-    private Action<IServiceCollection> _fetcherRegistration = RegisterPlaywright(new());
+    private Action<IServiceCollection> _pageFetcherRegistration = RegisterPlaywright(new());
+    private Action<IServiceCollection>? _searchRegistration;
 
     /// <summary>
     /// Configures the WAF-retry behaviour of <c>TiktokClient</c>.
@@ -30,21 +32,16 @@ public sealed class TiktokExplodeBuilder(IServiceCollection services)
 
     /// <summary>
     /// Configures the Playwright-based page fetcher as the active <see cref="IPageFetcher"/>.
-    /// This is the default strategy — call this only when you need to customise the options.
+    /// Use this only when you need a real browser to fetch video pages.
+    /// For search support, chain <see cref="UsePlaywrightSearch"/> independently.
     /// </summary>
-    /// <remarks>
-    /// Registering this fetcher also makes <see cref="ISearchClient"/> and <see cref="ISearchFetcher"/>
-    /// available in the container, because TikTok's search API requires a real browser session
-    /// to generate signed requests. These services are <b>not</b> registered when
-    /// <see cref="UseHttpFetcher"/> is used instead.
-    /// </remarks>
     /// <param name="options">Delegate that mutates a <see cref="PlaywrightFetcherOptions"/> instance.</param>
     /// <returns>The same builder for chaining.</returns>
     public TiktokExplodeBuilder UsePlaywrightFetcher(Action<PlaywrightFetcherOptions>? options = null)
     {
         var playwrightOptions = new PlaywrightFetcherOptions();
         options?.Invoke(playwrightOptions);
-        _fetcherRegistration = RegisterPlaywright(playwrightOptions);
+        _pageFetcherRegistration = RegisterPlaywright(playwrightOptions);
         return this;
     }
 
@@ -58,21 +55,42 @@ public sealed class TiktokExplodeBuilder(IServiceCollection services)
     {
         var httpFetcherOptions = new HttpFetcherOptions();
         options?.Invoke(httpFetcherOptions);
-        _fetcherRegistration = RegisterHttp(httpFetcherOptions);
+        _pageFetcherRegistration = RegisterHttp(httpFetcherOptions);
+        return this;
+    }
+
+    /// <summary>
+    /// Enables TikTok search support using a Playwright-based browser session.
+    /// Registers <see cref="ISearchFetcher"/> and <see cref="ISearchClient"/> as singletons.
+    /// Can be combined with any <see cref="IPageFetcher"/> strategy.
+    /// </summary>
+    /// <param name="options">Delegate that mutates a <see cref="PlaywrightFetcherOptions"/> instance.</param>
+    /// <returns>The same builder for chaining.</returns>
+    public TiktokExplodeBuilder UsePlaywrightSearch(Action<PlaywrightFetcherOptions>? options = null)
+    {
+        var playwrightOptions = new PlaywrightFetcherOptions();
+        options?.Invoke(playwrightOptions);
+        _searchRegistration = RegisterPlaywrightSearch(playwrightOptions);
         return this;
     }
 
     /// <summary>
     /// Applies all pending registrations to the underlying <see cref="IServiceCollection"/>.
     /// Registers <see cref="TiktokOptions"/>, the chosen <see cref="IPageFetcher"/>,
-    /// and <see cref="IVideoClient"/> as singletons.
+    /// <see cref="TiktokDownloadClient"/> (shared session), and <see cref="IVideoClient"/> as singletons.
     /// </summary>
     /// <returns>The service collection for further chaining.</returns>
     public IServiceCollection Build()
     {
         services.AddSingleton(_tiktokOptions);
-        _fetcherRegistration(services);
-        services.AddSingleton<IVideoClient, TiktokClient>();
+        services.AddSingleton<TiktokDownloadClient>();
+        _pageFetcherRegistration(services);
+        _searchRegistration?.Invoke(services);
+
+        services.AddSingleton<IVideoClient>(sp => new TiktokClient(
+            sp.GetRequiredService<TiktokDownloadClient>(),
+            sp.GetRequiredService<IPageFetcher>(),
+            sp.GetRequiredService<TiktokOptions>()));
         return services;
     }
 
@@ -82,8 +100,6 @@ public sealed class TiktokExplodeBuilder(IServiceCollection services)
         {
             services.AddSingleton(options);
             services.AddSingleton<IPageFetcher, PlaywrightFetcher>();
-            services.AddSingleton<ISearchFetcher, PlaywrightSearchFetcher>();
-            services.AddSingleton<ISearchClient, TiktokSearchClient>();
         };
     }
 
@@ -93,6 +109,18 @@ public sealed class TiktokExplodeBuilder(IServiceCollection services)
         {
             services.AddSingleton(options);
             services.AddSingleton<IPageFetcher, HttpFetcher>();
+        };
+    }
+
+    private static Action<IServiceCollection> RegisterPlaywrightSearch(PlaywrightFetcherOptions options)
+    {
+        return services =>
+        {
+            services.AddSingleton(options);
+            services.AddSingleton<ISearchFetcher, PlaywrightSearchFetcher>();
+            services.AddSingleton<ISearchClient>(sp => new TiktokSearchClient(
+                sp.GetRequiredService<TiktokDownloadClient>(),
+                sp.GetRequiredService<ISearchFetcher>()));
         };
     }
 }

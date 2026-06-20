@@ -99,7 +99,7 @@ public sealed class PlaywrightSearchFetcher(PlaywrightFetcherOptions options, Ti
             {
                 return await _browser!.GetSearchPageAsync(keyword);
             }
-            catch (TiktokWafException) when (attempt < tikTokOptions.MaxWafRetries)
+            catch (TiktokException) when (attempt < tikTokOptions.MaxWafRetries)
             {
                 await Task.Delay(tikTokOptions.RetryBaseDelay * (attempt + 1), cancellationToken);
             }

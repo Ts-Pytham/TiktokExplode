@@ -199,7 +199,7 @@ internal sealed class TiktokBrowser : IAsyncDisposable
             result = string.Empty;
         }
 
-        if (string.IsNullOrWhiteSpace(result))
+        if (string.IsNullOrWhiteSpace(result) || !result.Contains("\"data\":"))
         {
             result = await page.EvaluateAsync<string>(
                 """
@@ -216,6 +216,9 @@ internal sealed class TiktokBrowser : IAsyncDisposable
             """,
                 response.Url);
         }
+
+        if(!result.Contains("\"data\":"))
+            throw new TiktokException("Failed to retrieve search results from API response.");
 
         return new SearchPageResult
         {

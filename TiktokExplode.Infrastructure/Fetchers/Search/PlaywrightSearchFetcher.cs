@@ -1,9 +1,8 @@
-﻿using System.Diagnostics;
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using System.Text.Json.Nodes;
 using Microsoft.Playwright;
-using TiktokExplode.Domain.Exceptions;
 using TiktokExplode.Infrastructure.Browser;
+using TiktokExplode.Infrastructure.Common;
 using TiktokExplode.Infrastructure.Options;
 
 namespace TiktokExplode.Infrastructure.Fetchers.Search;
@@ -89,41 +88,17 @@ public sealed class PlaywrightSearchFetcher(PlaywrightFetcherOptions options, Ti
         }
     }
 
-    private async Task<SearchPageResult> FetchFirstPageWithRetryAsync(
-        string keyword, 
+    private Task<SearchPageResult> FetchFirstPageWithRetryAsync(
+        string keyword,
         CancellationToken cancellationToken)
-    {
-        for (int attempt = 0; attempt <= tikTokOptions.MaxWafRetries; attempt++)
-        {
-            try
-            {
-                return await _browser!.GetSearchPageAsync(keyword);
-            }
-            catch (TiktokException) when (attempt < tikTokOptions.MaxWafRetries)
-            {
-                await Task.Delay(tikTokOptions.RetryBaseDelay * (attempt + 1), cancellationToken);
-            }
-        }
-        throw new UnreachableException();
-    }
+        => TiktokRetryPolicy.ExecuteAsync(
+            _ => _browser!.GetSearchPageAsync(keyword), tikTokOptions, cancellationToken);
 
-    private async Task<string> FetchNextPageWithRetryAsync(
+    private Task<string> FetchNextPageWithRetryAsync(
         IPage page,
         CancellationToken cancellationToken)
-    {
-        for (int attempt = 0; attempt <= tikTokOptions.MaxWafRetries; attempt++)
-        {
-            try
-            {
-                return await _browser!.GetSearchNextPageAsync(page);
-            }
-            catch (TiktokWafException) when (attempt < tikTokOptions.MaxWafRetries)
-            {
-                await Task.Delay(tikTokOptions.RetryBaseDelay * (attempt + 1), cancellationToken);
-            }
-        }
-        throw new UnreachableException();
-    }
+        => TiktokRetryPolicy.ExecuteAsync(
+            _ => _browser!.GetSearchNextPageAsync(page), tikTokOptions, cancellationToken);
 
     /// <summary>
     /// Disposes the underlying browser and Playwright instance,

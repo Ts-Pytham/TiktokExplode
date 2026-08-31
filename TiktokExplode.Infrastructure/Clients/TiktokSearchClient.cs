@@ -35,6 +35,8 @@ public sealed class TiktokSearchClient(
         string keyword,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(keyword);
+
         await foreach (var result in fetcher.FetchSearchAsync(keyword, cancellationToken))
         {
             _downloadClient.InjectCookies(result.Cookies);
@@ -49,7 +51,7 @@ public sealed class TiktokSearchClient(
     /// <inheritdoc/>
     public async Task<StreamInfo> DownloadAsync(Video video, CancellationToken cancellationToken = default)
     {
-        if(string.IsNullOrWhiteSpace(video.Info.DownloadLinks.OriginalUrl))
+        if (string.IsNullOrWhiteSpace(video.Info.DownloadLinks.OriginalUrl))
             throw new TiktokException("Original download URL is not available for this video.");
 
         return await DownloadCoreAsync(video.Info.DownloadLinks.OriginalUrl, cancellationToken);

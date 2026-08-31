@@ -3,10 +3,13 @@ namespace TiktokExplode.Domain.Exceptions;
 /// <summary>
 /// Thrown when TikTok's Web Application Firewall (WAF) blocks the request.
 /// This exception is raised after all automatic retry attempts have been exhausted,
-/// as configured by <c>TikTokOptions.MaxWafRetries</c>.
+/// as configured by <c>TiktokOptions.MaxRetries</c>.
 /// </summary>
 public sealed class TiktokWafException : TiktokException
 {
+    /// <summary>Always <see langword="true"/>: a WAF challenge is expected to clear on a later attempt.</summary>
+    public override bool IsTransient => true;
+
     /// <summary>Initializes a new instance with a default message.</summary>
     public TiktokWafException()
         : base("The request was blocked by TikTok's Web Application Firewall (WAF).")
@@ -22,7 +25,7 @@ public sealed class TiktokWafException : TiktokException
     /// Initializes a new instance with the specified <paramref name="message"/>
     /// and <paramref name="innerException"/>.
     /// </summary>
-    public TiktokWafException(string message, Exception innerException) 
+    public TiktokWafException(string message, Exception innerException)
         : base(message, innerException)
     {
     }

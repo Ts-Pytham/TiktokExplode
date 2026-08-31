@@ -14,7 +14,7 @@ public class TikTokVideoParserTests
 
     private static readonly TiktokOptions NoRetry = new()
     {
-        MaxWafRetries = 0,
+        MaxRetries = 0,
         RetryBaseDelay = TimeSpan.Zero
     };
 
@@ -132,13 +132,24 @@ public class TikTokVideoParserTests
     }
 
     [Fact]
-    public async Task Should_ThrowVideoNotFoundException_When_ItemStructNodeIsMissing()
+    public async Task Should_ThrowTiktokUnavailablePageException_When_ItemStructIsMissingButStatusIsSuccess()
     {
         await using var client = CreateClient(TikTokFixtures.MissingItemStructHtml);
 
         var act = async () => await client.GetVideoAsync(ValidUrl);
 
-        await act.Should().ThrowExactlyAsync<VideoNotFoundException>();
+        await act.Should().ThrowExactlyAsync<TiktokUnavailablePageException>();
+    }
+
+    [Fact]
+    public async Task Should_ThrowVideoNotFoundException_When_TiktokReportsNonZeroStatusCode()
+    {
+        await using var client = CreateClient(TikTokFixtures.ItemUnavailableHtml);
+
+        var act = async () => await client.GetVideoAsync(ValidUrl);
+
+        (await act.Should().ThrowExactlyAsync<VideoNotFoundException>())
+            .Which.TiktokStatusCode.Should().Be(10204);
     }
 
     [Fact]

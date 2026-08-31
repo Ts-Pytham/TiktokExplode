@@ -5,7 +5,12 @@ namespace TiktokExplode.Domain.ValueObjects.Media;
 /// <summary>
 /// Represents the music or sound associated with a TikTok media.
 /// </summary>
-public sealed class MediaMusic
+/// <remarks>
+/// Equality is structural and includes <see cref="PlayUrl"/>, which is a signed, expiring CDN URL.
+/// Two instances describing the same track fetched at different times will therefore compare as unequal;
+/// compare <see cref="Id"/> to identify a track.
+/// </remarks>
+public sealed record MediaMusic
 {
     /// <summary>The unique TikTok-assigned identifier for the music or sound.</summary>
     public string Id { get; init; } = string.Empty;

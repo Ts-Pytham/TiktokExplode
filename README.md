@@ -106,7 +106,7 @@ await using var client = TiktokClient.CreateWithBrowser();
 // Playwright with custom options
 await using var client = TiktokClient.CreateWithBrowser(
     new PlaywrightFetcherOptions { BrowserChannel = "msedge", Headless = true },
-    new TikTokOptions { MaxWafRetries = 5 });
+    new TikTokOptions { MaxRetries = 5 });
 
 // HTTP-only — lightweight, may be blocked by WAF
 await using var client = TiktokClient.CreateWithHttp();
@@ -117,12 +117,12 @@ await using var client = new TiktokClient(myFetcher, new TikTokOptions());
 
 #### Methods
 
-| Method                                                       | Returns      | Description                             |
-| ------------------------------------------------------------ | ------------ | --------------------------------------- |
-| `GetVideoAsync(string url, CancellationToken)`               | `Video`      | Fetches full video metadata             |
-| `DownloadAsync(Video, CancellationToken)`                    | `StreamInfo` | Downloads video without watermark       |
-| `DownloadWatermarkedAsync(Video, CancellationToken)`         | `StreamInfo` | Downloads video with watermark          |
-| `DownloadImageAsync(CarouselImage, CancellationToken)`       | `StreamInfo` | Downloads a carousel image stream       |
+| Method                                                 | Returns      | Description                       |
+| ------------------------------------------------------ | ------------ | --------------------------------- |
+| `GetVideoAsync(string url, CancellationToken)`         | `Video`      | Fetches full video metadata       |
+| `DownloadAsync(Video, CancellationToken)`              | `StreamInfo` | Downloads video without watermark |
+| `DownloadWatermarkedAsync(Video, CancellationToken)`   | `StreamInfo` | Downloads video with watermark    |
+| `DownloadImageAsync(CarouselImage, CancellationToken)` | `StreamInfo` | Downloads a carousel image stream |
 
 `TiktokClient` implements `IAsyncDisposable` — always use `await using`.
 
@@ -152,31 +152,35 @@ await foreach (var media in client.SearchAsync("funny cats"))
 }
 ```
 
-> **Note:** `TiktokSearchClient` implements `ISearchClient`, which extends `IDownloadClient`. This means all extension methods (`DownloadAsync(filePath)`, `DownloadWatermarkedAsync(filePath)`, `DownloadImageAsync`, `DownloadAnimatedImageAsync`, `DownloadCarouselImagesAsync`) are available directly on the search client — no need for a separate `TiktokClient` instance.
+> **Note:** `TiktokSearchClient` implements `ISearchClient`, which extends `IDownloadClient`. This means all extension methods (`DownloadAsync(filePath)`, `DownloadWatermarkedAsync(filePath)`, `DownloadImageAsync`, `DownloadAnimatedCoverAsync`, `DownloadCarouselImagesAsync`) are available directly on the search client — no need for a separate `TiktokClient` instance.
 
 > **Search scope:** The current implementation returns results from the **first page** of TikTok's search API (~10–20 results).
 
 #### Methods
 
-| Method                                                         | Returns                   | Description                                                  |
-| -------------------------------------------------------------- | ------------------------- | ------------------------------------------------------------ |
-| `SearchAsync(string keyword, CancellationToken)`               | `IAsyncEnumerable<Media>` | Streams media results (videos and carousels) for the keyword |
-| `DownloadAsync(Video, CancellationToken)`                      | `StreamInfo`              | Downloads video without watermark                            |
-| `DownloadWatermarkedAsync(Video, CancellationToken)`           | `StreamInfo`              | Downloads video with watermark                               |
-| `DownloadImageAsync(CarouselImage, CancellationToken)`         | `StreamInfo`              | Downloads a carousel image stream                            |
+| Method                                                 | Returns                   | Description                                                  |
+| ------------------------------------------------------ | ------------------------- | ------------------------------------------------------------ |
+| `SearchAsync(string keyword, CancellationToken)`       | `IAsyncEnumerable<Media>` | Streams media results (videos and carousels) for the keyword |
+| `DownloadAsync(Video, CancellationToken)`              | `StreamInfo`              | Downloads video without watermark                            |
+| `DownloadWatermarkedAsync(Video, CancellationToken)`   | `StreamInfo`              | Downloads video with watermark                               |
+| `DownloadImageAsync(CarouselImage, CancellationToken)` | `StreamInfo`              | Downloads a carousel image stream                            |
 
 `TiktokSearchClient` implements `IAsyncDisposable` — always use `await using`.
 
 #### Extension methods (via `DownloadClientExtensions`)
 
-| Method                                                                  | Description                                                              |
-| ----------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| `DownloadAsync(video, filePath, progress?, ct)`                         | Downloads video without watermark to a file, with optional progress      |
-| `DownloadWatermarkedAsync(video, filePath, progress?, ct)`              | Downloads video with watermark to a file, with optional progress         |
-| `DownloadImageAsync(image, filePath, progress?, ct)`                    | Downloads a single carousel image to a file, with optional progress      |
-| `DownloadCarouselImagesAsync(carousel, directoryPath, progress?, ct)`   | Downloads all carousel images to a directory with overall progress       |
-| `DownloadImageAsync(video, filePath, ct)`                               | Downloads the static cover image of a video (JPEG)                       |
-| `DownloadAnimatedImageAsync(video, filePath, ct)`                       | Downloads the animated cover of a video (WebP)                           |
+| Method                                                                | Description                                                         |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `DownloadAsync(video, filePath, progress?, ct)`                       | Downloads video without watermark to a file, with optional progress |
+| `DownloadWatermarkedAsync(video, filePath, progress?, ct)`            | Downloads video with watermark to a file, with optional progress    |
+| `DownloadImageAsync(image, filePath, progress?, ct)`                  | Downloads a single carousel image to a file, with optional progress |
+| `DownloadCarouselImagesAsync(carousel, directoryPath, progress?, ct)` | Downloads all carousel images to a directory with overall progress  |
+| `DownloadCoverAsync(video, filePath, ct)`                             | Downloads the static cover image of a video (JPEG)                  |
+| `DownloadAnimatedCoverAsync(video, filePath, ct)`                     | Downloads the animated cover of a video (WebP)                      |
+
+> **Deprecated:** `DownloadImageAsync(video, …)` and `DownloadAnimatedImageAsync(video, …)` were renamed to
+> `DownloadCoverAsync` and `DownloadAnimatedCoverAsync` — they download the _cover_, not a post image.
+> The old names still work but will be removed in 2.0.
 
 ```csharp
 // Download video to file with optional progress
@@ -185,8 +189,8 @@ await client.DownloadAsync(video, "output.mp4", progress);
 await client.DownloadWatermarkedAsync(video, "output_wm.mp4", progress);
 
 // Download cover images
-await client.DownloadImageAsync(video, "cover.jpg");
-await client.DownloadAnimatedImageAsync(video, "cover.webp");
+await client.DownloadCoverAsync(video, "cover.jpg");
+await client.DownloadAnimatedCoverAsync(video, "cover.webp");
 
 // Download a single carousel image
 await client.DownloadImageAsync(carousel.Post.Images[0], "image_1.jpg", progress);
@@ -214,10 +218,14 @@ Returned by `DownloadAsync` and `DownloadWatermarkedAsync`. Implements `IAsyncDi
 
 ### `TikTokOptions`
 
-| Property         | Default | Description                                 |
-| ---------------- | ------- | ------------------------------------------- |
-| `MaxWafRetries`  | `3`     | Max retries on WAF detection                |
-| `RetryBaseDelay` | `2s`    | Base delay between retries (grows linearly) |
+| Property         | Default | Description                                                             |
+| ---------------- | ------- | ----------------------------------------------------------------------- |
+| `MaxRetries`     | `3`     | Max retries on **transient** failures (WAF, soft block, `429`, `5xx`)   |
+| `RetryBaseDelay` | `2s`    | Base delay between retries (grows linearly)                             |
+| `UseRetryJitter` | `true`  | Randomizes each delay by ±25% so concurrent clients don't retry in sync |
+
+> **Deprecated:** `MaxWafRetries` still works but forwards to `MaxRetries` and will be removed in 2.0.
+> Retries are no longer WAF-specific — see [Error Handling](#error-handling).
 
 ### `PlaywrightFetcherOptions`
 
@@ -299,7 +307,7 @@ services.AddTiktokExplode(b => b
 // Note: ISearchClient is NOT available with HTTP fetcher (see below)
 services.AddTiktokExplode(b => b
     .UseHttpFetcher(o => o.WarmupDelay = TimeSpan.Zero)
-    .ConfigureTiktok(o => o.MaxWafRetries = 5));
+    .ConfigureTiktok(o => o.MaxRetries = 5));
 ```
 
 Registered services:
@@ -331,6 +339,18 @@ public class MyService(IVideoClient client)
 
 ## Error Handling
 
+Every library error derives from `TiktokException`, which exposes `IsTransient` — `true` when the
+same request is likely to succeed on a later attempt. The client retries **only** transient failures,
+so a deleted video fails immediately instead of burning the full retry budget.
+
+| Exception                        | Transient | Meaning                                                              |
+| -------------------------------- | :-------: | -------------------------------------------------------------------- |
+| `TiktokWafException`             |     ✔     | Bot detection challenge                                              |
+| `TiktokUnavailablePageException` |     ✔     | Soft block: TikTok served a placeholder page or an empty payload     |
+| `TiktokHttpException`            |  depends  | Non-success HTTP status. Transient for `408`, `425`, `429` and `5xx` |
+| `VideoNotFoundException`         |     ✘     | Video removed, private, or region-locked                             |
+| `TiktokParsingException`         |     ✘     | TikTok changed its HTML/JSON — the library needs updating            |
+
 ```csharp
 using TiktokExplode.Domain.Exceptions;
 
@@ -342,17 +362,26 @@ catch (TiktokWafException ex)
 {
     // Bot detection triggered after all retries exhausted
 }
-catch (VideoNotFoundException ex)
+catch (TiktokUnavailablePageException ex)
 {
-    // Video does not exist or is private
+    // TikTok soft-blocked the request after all retries exhausted
+}
+catch (TiktokHttpException ex)
+{
+    // ex.StatusCode carries the HTTP status returned by TikTok or the CDN
+}
+catch (MediaNotFoundException ex)
+{
+    // Video or carousel does not exist or is private.
+    // ex.TiktokStatusCode carries TikTok's own reason code when available.
 }
 catch (TiktokParsingException ex)
 {
-    // Unexpected page structure (TikTok changed their HTML/JSON)
+    // Unexpected page structure. ex.Path points at the node that could not be resolved.
 }
 catch (TiktokException ex)
 {
-    // Base exception — catch-all for library errors
+    // Base exception — catch-all for library errors. ex.IsTransient tells you whether to retry.
 }
 ```
 

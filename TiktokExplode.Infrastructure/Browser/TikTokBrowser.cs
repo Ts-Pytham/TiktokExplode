@@ -109,7 +109,7 @@ internal sealed class TiktokBrowser : IAsyncDisposable
             });
 
             if (response is null || !response.Ok)
-                throw new TiktokParsingException($"Failed to load page. Status: {response?.Status}");
+                throw TiktokHttpException.FromStatus(response?.Status ?? 0, url);
 
             var content = await page.ContentAsync();
 
@@ -168,7 +168,7 @@ internal sealed class TiktokBrowser : IAsyncDisposable
             });
 
         if (pageResponse is null || !pageResponse.Ok)
-            throw new TiktokParsingException($"Failed to load page. Status: {pageResponse?.Status}");
+            throw TiktokHttpException.FromStatus(pageResponse?.Status ?? 0, page.Url);
 
         var content = await page.ContentAsync();
 
@@ -180,13 +180,15 @@ internal sealed class TiktokBrowser : IAsyncDisposable
         {
             response = await responseTask;
         }
-        catch (TimeoutException)
+        catch (TimeoutException ex)
         {
-            throw new TiktokParsingException("Search API request was not intercepted within the timeout period. TikTok may not have issued the search request.");
+            throw new TiktokUnavailablePageException(
+                "Search API request was not intercepted within the timeout period. TikTok may not have issued the search request.",
+                ex);
         }
 
         if (!response.Ok)
-            throw new TiktokParsingException($"Failed to load search results. Status: {response.Status}");
+            throw TiktokHttpException.FromStatus(response.Status, response.Url);
 
         string result;
 
@@ -217,8 +219,9 @@ internal sealed class TiktokBrowser : IAsyncDisposable
                 response.Url);
         }
 
-        if(!result.Contains("\"data\":"))
-            throw new TiktokException("Failed to retrieve search results from API response.");
+        if (!result.Contains("\"data\":"))
+            throw new TiktokUnavailablePageException(
+                "The search API response contained no 'data' array. The request was most likely soft-blocked.");
 
         return new SearchPageResult
         {
@@ -233,8 +236,8 @@ internal sealed class TiktokBrowser : IAsyncDisposable
     /// <param name="page">The page containing the search results. Must be the same page returned 
     /// by <see cref="GetSearchPageAsync"/>.</param>
     /// <returns>The raw JSON string returned by the search API for the next page of results.</returns>
-    /// <exception cref="TiktokParsingException"> Thrown if the search results container is not found, if the API response 
-    /// is not OK, or if the API response cannot be retrieved within the timeout period.</exception>
+    /// <exception cref="TiktokParsingException">Thrown if the search results container is no longer in the DOM.</exception>
+    /// <exception cref="TiktokHttpException">Thrown if the search API responds with a non-success status code.</exception>
     public async Task<string> GetSearchNextPageAsync(IPage page)
     {
         var responseTask = page.WaitForResponseAsync(
@@ -260,16 +263,16 @@ internal sealed class TiktokBrowser : IAsyncDisposable
         if (!scrolled)
         {
             throw new TiktokParsingException(
-                "Search results container '#grid-main' was not found.");
+                "Search results container '#grid-main' was not found.")
+            {
+                Path = "#grid-main"
+            };
         }
 
         var response = await responseTask;
 
         if (!response.Ok)
-        {
-            throw new TiktokParsingException(
-                $"Failed to load next search page. Status: {response.Status}");
-        }
+            throw TiktokHttpException.FromStatus(response.Status, response.Url);
 
         return await page.EvaluateAsync<string>(
         """

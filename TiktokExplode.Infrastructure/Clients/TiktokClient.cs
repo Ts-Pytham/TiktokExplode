@@ -1,10 +1,10 @@
-using System.Diagnostics;
 using TiktokExplode.Domain.Abstractions;
 using TiktokExplode.Domain.Entities;
 using TiktokExplode.Domain.Exceptions;
 using TiktokExplode.Domain.Utilities;
 using TiktokExplode.Domain.ValueObjects;
 using TiktokExplode.Domain.ValueObjects.Carousels;
+using TiktokExplode.Infrastructure.Common;
 using TiktokExplode.Infrastructure.Fetchers;
 using TiktokExplode.Infrastructure.Http;
 using TiktokExplode.Infrastructure.Options;
@@ -46,28 +46,22 @@ public sealed class TiktokClient(IPageFetcher fetcher, TiktokOptions options) : 
     /// <inheritdoc/>
     /// <remarks>
     /// On each attempt the page is fetched, cookies are injected into the download client,
-    /// and the HTML is parsed. If a <see cref="TiktokWafException"/> is thrown, the method
-    /// waits <c>RetryBaseDelay × attempt</c> before retrying, up to <c>MaxWafRetries</c> times.
+    /// and the HTML is parsed. Only <see cref="TiktokException.IsTransient"/> failures are retried,
+    /// waiting <c>RetryBaseDelay × attempt</c> (jittered) before the next attempt, up to
+    /// <see cref="TiktokOptions.MaxRetries"/> times. A removed or private video fails immediately.
     /// </remarks>
-    public async Task<Video> GetVideoAsync(string url, CancellationToken cancellationToken = default)
+    public Task<Video> GetVideoAsync(string url, CancellationToken cancellationToken = default)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(url);
         TiktokUrlValidator.Validate(url);
 
-        for (int attempt = 0; attempt <= options.MaxWafRetries; attempt++)
+        return TiktokRetryPolicy.ExecuteAsync(async ct =>
         {
-            try
-            {
-                var result = await fetcher.FetchPageAsync(url, cancellationToken);
+            var result = await fetcher.FetchPageAsync(url, ct);
 
-                _downloadClient.InjectCookies(result.Cookies);
-                return await _parser.ParseAsync(result.HtmlContent);
-            }
-            catch (TiktokException) when (attempt < options.MaxWafRetries)
-            {
-                await Task.Delay(options.RetryBaseDelay * (attempt + 1), cancellationToken);
-            }
-        }
-        throw new UnreachableException();
+            _downloadClient.InjectCookies(result.Cookies);
+            return await _parser.ParseAsync(result.HtmlContent);
+        }, options, cancellationToken);
     }
 
     /// <summary>

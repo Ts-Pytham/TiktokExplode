@@ -38,7 +38,7 @@ services.AddTiktokExplode(b => b
 // Note: ISearchClient is NOT registered without UsePlaywrightSearch
 services.AddTiktokExplode(b => b
     .UseHttpFetcher(o => o.WarmupDelay = TimeSpan.Zero)
-    .ConfigureTiktok(o => o.MaxWafRetries = 5));
+    .ConfigureTiktok(o => o.MaxRetries = 5));
 ```
 
 Then inject `IVideoClient` or `ISearchClient` normally:

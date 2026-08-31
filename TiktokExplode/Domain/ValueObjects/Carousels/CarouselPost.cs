@@ -3,16 +3,19 @@
 /// <summary>
 /// Represents the content of a TikTok image carousel post, including all images and related metadata
 /// </summary>
-public sealed class CarouselPost
+/// <remarks>
+/// Equality is structural, but <see cref="Images"/> is compared by reference because it is a
+/// <see cref="IReadOnlyList{T}"/>. Two separately parsed carousels never compare as equal.
+/// </remarks>
+public sealed record CarouselPost
 {
     /// <summary>
-    /// The total number of images in the carousel. This indicates how many images are included in the post.
+    /// The title of the carousel post, as displayed by TikTok. Empty when the post has none.
     /// </summary>
     public string Title { get; init; } = string.Empty;
 
     /// <summary>
-    /// The index of the currently displayed image in the carousel. This is a 1-based index 
-    /// indicating which image is currently being viewed by the user.
+    /// The image used as the cover of the carousel.
     /// </summary>
     public CarouselImage Cover { get; init; } = new();
 

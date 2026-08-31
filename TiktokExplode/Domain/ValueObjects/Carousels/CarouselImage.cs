@@ -4,7 +4,11 @@
 /// Represents an individual image within a TikTok carousel post, 
 /// including its dimensions and available URLs for different resolutions.
 /// </summary>
-public sealed class CarouselImage
+/// <remarks>
+/// Equality is structural, but <see cref="Urls"/> is compared by reference because it is a
+/// <see cref="IReadOnlyList{T}"/>. Two separately parsed images never compare as equal.
+/// </remarks>
+public sealed record CarouselImage
 {
     /// <summary>
     /// The width of the image in pixels. This can be used to determine the aspect ratio.

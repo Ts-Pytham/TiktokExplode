@@ -30,14 +30,21 @@ internal sealed class TiktokVideoParser
     /// Thrown if the hydration script, required JSON nodes, or individual fields are missing or malformed.
     /// </exception>
     /// <exception cref="Domain.Exceptions.VideoNotFoundException">
-    /// Thrown if the <c>itemStruct</c> node is absent, indicating the video does not exist.
+    /// Thrown when TikTok reports a non-zero <c>statusCode</c>, meaning the video was removed,
+    /// is private, or is unavailable in the current region.
+    /// </exception>
+    /// <exception cref="TiktokUnavailablePageException">
+    /// Thrown when TikTok reports success but omits <c>itemStruct</c>, which indicates a soft block.
     /// </exception>
     public async Task<Video> ParseAsync(string htmlContent)
     {
         var document = await _htmlParser.ParseDocumentAsync(htmlContent);
 
         var script = document.QuerySelector("#__UNIVERSAL_DATA_FOR_REHYDRATION__")
-            ?? throw new TiktokParsingException("Hydration script not found in the HTML content.");
+            ?? throw new TiktokParsingException("Hydration script not found in the HTML content.")
+            {
+                Path = "#__UNIVERSAL_DATA_FOR_REHYDRATION__"
+            };
 
         var node = ExtractItemStruct(script);
 
@@ -51,16 +58,34 @@ internal sealed class TiktokVideoParser
             ?? throw new TiktokParsingException("Failed to parse JSON content from the hydration script.");
 
         var defaultScope = root["__DEFAULT_SCOPE__"]
-            ?? throw new TiktokParsingException("Default scope not found in the JSON content.");
+            ?? throw new TiktokParsingException("Default scope not found in the JSON content.")
+            {
+                Path = "__DEFAULT_SCOPE__"
+            };
 
         var webappVideoDetail = defaultScope["webapp.video-detail"]
-            ?? throw new TiktokParsingException("Webapp video detail not found in the JSON content.");
+            ?? throw new TiktokParsingException("Webapp video detail not found in the JSON content.")
+            {
+                Path = "__DEFAULT_SCOPE__.webapp.video-detail"
+            };
+
+        // TikTok reports why an item is unavailable here; 0 means the item exists.
+        var tiktokStatusCode = webappVideoDetail.GetOptionalNumber<int>("statusCode") ?? 0;
+
+        if (tiktokStatusCode != 0)
+            throw new VideoNotFoundException(
+                $"TikTok reported status code {tiktokStatusCode} for this video. It was removed, is private, or is unavailable in this region.")
+            {
+                TiktokStatusCode = tiktokStatusCode
+            };
 
         var itemInfo = webappVideoDetail["itemInfo"]
-            ?? throw new TiktokParsingException("Item info not found in the JSON content.");
+            ?? throw new TiktokUnavailablePageException(
+                "TikTok reported success but returned no 'itemInfo'. The request was most likely soft-blocked.");
 
         var itemStruct = itemInfo["itemStruct"]
-            ?? throw new VideoNotFoundException("Item struct not found in the JSON content.");
+            ?? throw new TiktokUnavailablePageException(
+                "TikTok reported success but returned no 'itemStruct'. The request was most likely soft-blocked.");
 
         return itemStruct;
     }
@@ -79,17 +104,17 @@ internal sealed class TiktokVideoParser
 
         return new Video
         {
-            Id          = node.GetString("id"),
-            Author      = ParseAuthor(node),
-            Info        = ParseVideoInfo(videoNode),
-            Stats       = ParseVideoStats(statsNode),
-            Duration    = ParseVideoDuration(videoNode),
-            Music       = ParseVideoMusic(musicNode),
-            Language    = ParseVideoLanguage(node),
-            Cover       = ParseVideoCover(videoNode),
+            Id = node.GetString("id"),
+            Author = ParseAuthor(node),
+            Info = ParseVideoInfo(videoNode),
+            Stats = ParseVideoStats(statsNode),
+            Duration = ParseVideoDuration(videoNode),
+            Music = ParseVideoMusic(musicNode),
+            Language = ParseVideoLanguage(node),
+            Cover = ParseVideoCover(videoNode),
             Description = node.GetStringOrEmpty("desc"),
-            Location    = node.GetStringOrEmpty("locationCreated"),
-            CreatedAt   = DateTimeOffset.FromUnixTimeSeconds(node.GetNumber<long>("createTime")),
+            Location = node.GetStringOrEmpty("locationCreated"),
+            CreatedAt = DateTimeOffset.FromUnixTimeSeconds(node.GetNumber<long>("createTime")),
         };
     }
 
@@ -100,8 +125,8 @@ internal sealed class TiktokVideoParser
 
         return new VideoDuration
         {
-            Seconds         = seconds,
-            PreciseSeconds  = node.GetOptionalNumber<double>("preciseDuration") ?? seconds
+            Seconds = seconds,
+            PreciseSeconds = node.GetOptionalNumber<double>("preciseDuration") ?? seconds
         };
     }
 
@@ -117,14 +142,14 @@ internal sealed class TiktokVideoParser
         var createdAtUnix = author.GetOptionalNumber<long>("createTime");
         return new Author
         {
-            Id          = author.GetString("id"),
-            UniqueId    = author.GetString("uniqueId"),
-            Name        = author.GetString("nickname"),
+            Id = author.GetString("id"),
+            UniqueId = author.GetString("uniqueId"),
+            Name = author.GetString("nickname"),
             Description = author.GetStringOrEmpty("signature"),
-            IsVerified  = author.GetBool("verified"),
-            IsPrivate   = author.GetBool("privateAccount"),
-            CreatedAt   = createdAtUnix is not null ? DateTimeOffset.FromUnixTimeSeconds(createdAtUnix.Value) : null,
-            Avatar      = ParseProfileImageVariants(author),
+            IsVerified = author.GetBool("verified"),
+            IsPrivate = author.GetBool("privateAccount"),
+            CreatedAt = createdAtUnix is not null ? DateTimeOffset.FromUnixTimeSeconds(createdAtUnix.Value) : null,
+            Avatar = ParseProfileImageVariants(author),
             Stats = ParseAuthorStats(authorStatsNode),
         };
     }
@@ -134,11 +159,11 @@ internal sealed class TiktokVideoParser
     {
         return new AuthorStats
         {
-            Followers       = authorStatsNode.GetNumber<long>("followerCount"),
-            Following       = authorStatsNode.GetNumber<long>("followingCount"),
-            Friends         = authorStatsNode.GetNumber<long>("friendCount"),
-            LikesReceived   = authorStatsNode.GetNumber<long>("heartCount"),
-            VideoCount      = authorStatsNode.GetNumber<long>("videoCount"),
+            Followers = authorStatsNode.GetNumber<long>("followerCount"),
+            Following = authorStatsNode.GetNumber<long>("followingCount"),
+            Friends = authorStatsNode.GetNumber<long>("friendCount"),
+            LikesReceived = authorStatsNode.GetNumber<long>("heartCount"),
+            VideoCount = authorStatsNode.GetNumber<long>("videoCount"),
         };
     }
 
@@ -147,9 +172,9 @@ internal sealed class TiktokVideoParser
     {
         return new ProfileImageVariants
         {
-            Larger  = author.GetString("avatarLarger"),
-            Medium  = author.GetString("avatarMedium"),
-            Small   = author.GetString("avatarThumb")
+            Larger = author.GetString("avatarLarger"),
+            Medium = author.GetString("avatarMedium"),
+            Small = author.GetString("avatarThumb")
         };
     }
 
@@ -160,12 +185,12 @@ internal sealed class TiktokVideoParser
 
         return new VideoInfo
         {
-            Ratio           = node.GetString("ratio"),
-            VideoQuality    = node.GetString("videoQuality"),
-            Width           = node.GetNumber<int>("width"),
-            Height          = node.GetNumber<int>("height"),
-            Bitrates        = bitrateInfoNode is null ? [] : ParseBitrates(bitrateInfoNode),
-            DownloadLinks   = ParseDownloadLinks(node),
+            Ratio = node.GetString("ratio"),
+            VideoQuality = node.GetString("videoQuality"),
+            Width = node.GetNumber<int>("width"),
+            Height = node.GetNumber<int>("height"),
+            Bitrates = bitrateInfoNode is null ? [] : ParseBitrates(bitrateInfoNode),
+            DownloadLinks = ParseDownloadLinks(node),
         };
     }
 
@@ -174,8 +199,8 @@ internal sealed class TiktokVideoParser
     {
         return new VideoDownloadLinks
         {
-            OriginalUrl         = node.GetStringOrEmpty("playAddr"),
-            WatermarkedUrl      = node.GetStringOrEmpty("downloadAddr"),
+            OriginalUrl = node.GetStringOrEmpty("playAddr"),
+            WatermarkedUrl = node.GetStringOrEmpty("downloadAddr"),
             OriginalSizeInBytes = node.GetNumber<long>("size")
         };
     }
@@ -185,12 +210,12 @@ internal sealed class TiktokVideoParser
     {
         return new MediaStats
         {
-            Views       = node.GetNumber<long>("playCount"),
-            Likes       = node.GetNumber<long>("diggCount"),
-            Comments    = node.GetNumber<long>("commentCount"),
-            Shares      = node.GetNumber<long>("shareCount"),
-            Favorites   = node.GetNumber<long>("collectCount"),
-            Reposts     = node.GetNumber<long>("repostCount")
+            Views = node.GetNumber<long>("playCount"),
+            Likes = node.GetNumber<long>("diggCount"),
+            Comments = node.GetNumber<long>("commentCount"),
+            Shares = node.GetNumber<long>("shareCount"),
+            Favorites = node.GetNumber<long>("collectCount"),
+            Reposts = node.GetNumber<long>("repostCount")
         };
     }
 
@@ -228,7 +253,7 @@ internal sealed class TiktokVideoParser
         return new MediaLanguage
         {
             PrimaryLanguage = node.GetStringOrEmpty("textLanguage"),
-            IsTranslatable  = node.GetBool("textTranslatable")
+            IsTranslatable = node.GetBool("textTranslatable")
         };
     }
 
@@ -238,7 +263,7 @@ internal sealed class TiktokVideoParser
         return new MediaCover
         {
             AnimatedUrl = node.GetStringOrEmpty("dynamicCover"),
-            StaticUrl   = node.GetString("cover")
+            StaticUrl = node.GetString("cover")
         };
     }
 
@@ -247,16 +272,16 @@ internal sealed class TiktokVideoParser
     {
         return new MediaMusic
         {
-            Id              = node.GetString("id"),
-            Title           = node.GetString("title"),
-            AuthorName      = node.GetString("authorName"),
-            AlbumName       = node.GetStringOrEmpty("album"),
-            Images          = ParseMusicImageVariants(node),
-            Duration        = ParseMediaDuration(node),
-            IsCopyrighted   = node.GetBool("isCopyrighted"),
-            IsOriginal      = node.GetBool("original"),
-            IsPrivate       = node.GetBool("private"),
-            PlayUrl         = node.GetStringOrEmpty("playUrl"),
+            Id = node.GetString("id"),
+            Title = node.GetString("title"),
+            AuthorName = node.GetString("authorName"),
+            AlbumName = node.GetStringOrEmpty("album"),
+            Images = ParseMusicImageVariants(node),
+            Duration = ParseMediaDuration(node),
+            IsCopyrighted = node.GetBool("isCopyrighted"),
+            IsOriginal = node.GetBool("original"),
+            IsPrivate = node.GetBool("private"),
+            PlayUrl = node.GetStringOrEmpty("playUrl"),
         };
     }
 
@@ -268,8 +293,8 @@ internal sealed class TiktokVideoParser
 
         return new MediaDuration
         {
-            Seconds         = seconds,
-            PreciseSeconds  = preciseDurationNode?.GetOptionalNumber<double>("preciseDuration") ?? seconds
+            Seconds = seconds,
+            PreciseSeconds = preciseDurationNode?.GetOptionalNumber<double>("preciseDuration") ?? seconds
         };
     }
 
@@ -278,9 +303,9 @@ internal sealed class TiktokVideoParser
     {
         return new ProfileImageVariants
         {
-            Larger  = music.GetString("coverLarge"),
-            Medium  = music.GetString("coverMedium"),
-            Small   = music.GetString("coverThumb")
+            Larger = music.GetString("coverLarge"),
+            Medium = music.GetString("coverMedium"),
+            Small = music.GetString("coverThumb")
         };
     }
 }

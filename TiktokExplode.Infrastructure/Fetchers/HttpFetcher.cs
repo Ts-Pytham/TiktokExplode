@@ -92,7 +92,11 @@ public sealed class HttpFetcher : IPageFetcher, IDisposable
     /// <param name="url">The absolute TikTok video URL to fetch.</param>
     /// <param name="cancellationToken">Token to cancel the operation.</param>
     /// <returns>A <see cref="PageFetchResult"/> with the page HTML and captured cookies.</returns>
+    /// <exception cref="TiktokHttpException">Thrown when TikTok responds with a non-success status code.</exception>
     /// <exception cref="TiktokWafException">Thrown if WAF challenge markers are found in the response body.</exception>
+    /// <exception cref="TiktokUnavailablePageException">
+    /// Thrown when TikTok serves the branded placeholder page instead of the hydration payload.
+    /// </exception>
     public async Task<PageFetchResult> FetchPageAsync(string url, CancellationToken cancellationToken = default)
     {
         await EnsureWarmedUpAsync(cancellationToken);
@@ -108,29 +112,33 @@ public sealed class HttpFetcher : IPageFetcher, IDisposable
             HttpCompletionOption.ResponseHeadersRead,
             cancellationToken);
 
+        if (!response.IsSuccessStatusCode)
+            throw TiktokHttpException.FromStatus((int)response.StatusCode, url);
+
         var content = await response.Content.ReadAsStringAsync(cancellationToken);
 
         if (content.Contains("_wafchallengeid", StringComparison.OrdinalIgnoreCase))
             throw new TiktokWafException("TikTok WAF challenge detected.");
 
         if (!content.Contains("__UNIVERSAL_DATA_FOR_REHYDRATION__", StringComparison.OrdinalIgnoreCase))
-            throw new TiktokException("TikTok logo detected.");
+            throw new TiktokUnavailablePageException(
+                $"TikTok served a placeholder page for '{url}' without the hydration payload. The request was soft-blocked.");
 
         var cookies = _cookies.GetAllCookies()
             .Cast<Cookie>()
             .Select(c => new CookieData
             {
-                Name   = c.Name,
-                Value  = c.Value,
+                Name = c.Name,
+                Value = c.Value,
                 Domain = c.Domain,
-                Path   = c.Path
+                Path = c.Path
             })
             .ToList();
 
         return new PageFetchResult
         {
             HtmlContent = content,
-            Cookies     = cookies
+            Cookies = cookies
         };
     }
 

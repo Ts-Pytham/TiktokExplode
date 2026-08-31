@@ -108,11 +108,30 @@ internal static class TikTokFixtures
   public static readonly string NoHydrationScriptHtml =
       "<html><body><p>No script here</p></body></html>";
 
-  /// <summary>Valid JSON structure but <c>itemStruct</c> is absent → <see cref="Domain.Exceptions.VideoNotFoundException"/>.</summary>
+  /// <summary>
+  /// TikTok reports success but omits <c>itemStruct</c> → soft block →
+  /// <see cref="Domain.Exceptions.TiktokUnavailablePageException"/>.
+  /// </summary>
   public static readonly string MissingItemStructHtml = Wrap("""
         {
           "__DEFAULT_SCOPE__": {
             "webapp.video-detail": {
+              "statusCode": 0,
+              "itemInfo": {}
+            }
+          }
+        }
+        """);
+
+  /// <summary>
+  /// TikTok reports a non-zero <c>statusCode</c> → the item is gone →
+  /// <see cref="Domain.Exceptions.VideoNotFoundException"/>.
+  /// </summary>
+  public static readonly string ItemUnavailableHtml = Wrap("""
+        {
+          "__DEFAULT_SCOPE__": {
+            "webapp.video-detail": {
+              "statusCode": 10204,
               "itemInfo": {}
             }
           }
